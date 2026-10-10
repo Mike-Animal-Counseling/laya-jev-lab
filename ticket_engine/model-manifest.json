@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "artifact_version": 5,
+  "trained_fields": [
+    "category",
+    "urgency",
+    "complaint",
+    "churn",
+    "refund"
+  ],
+  "training_steps": 953,
+  "checkpoint_sha256": "c4ee793b468368c257a152cd4c42ea5e95dd867fdd9eced21e752cae1b5d019f",
+  "base_checkpoint_sha256": "9d628fd971b700382ac6f65920a86f149777b2e748e0c955fb3b19695aa8f204",
+  "rubric_id": "c07d699661767507d686dcc4573ffb8b1abf86ecb509803ecc87cc93f4f19b29",
+  "training_method": "V4 continuation; official RLCD plus smoothed CE; partial-label masked public warmup; DDP",
+  "limitations": [
+    "Local labels are synthetic and not independently human-confirmed production truth",
+    "Public labels are weak mappings and only known fields contribute loss",
+    "Published V4 test is regression evidence, not a fresh holdout",
+    "V4 calibration data are reused to fit temperatures",
+    "External diagnostic is weak-label QA, not production accuracy",
+    "No Jev API was used and no Jev accuracy is implied"
+  ],
+  "files": {
+    "rl_agent_config.json": {
+      "sha256": "71d9822bba895a38144e80c399a75bca733db78a5bc877e983bfb8a7b4b6d974"
+    },
+    "model.safetensors": {
+      "sha256": "c4ee793b468368c257a152cd4c42ea5e95dd867fdd9eced21e752cae1b5d019f"
+    },
+    "encoder/config.json": {
+      "sha256": "fad4076bcae03044a509e35a2d36c1cdff482fd4c2d6e7c5d187bbc7d8b91590"
+    },
+    "tokenizer/tokenizer_config.json": {
+      "sha256": "e8e6a37c189f9dd23976b86b3e1ddb6928472e9f87c94103a1aaff311f45f090"
+    },
+    "tokenizer/tokenizer.json": {
+      "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+    }
+  }
+}

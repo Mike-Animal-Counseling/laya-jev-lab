@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laya-jev-ticket-engine"
+version = "0.1.0"
+description = "Explicitly scoped SaaS ticket classification with local Laya and Jev API engines"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE.md", "licenses/mmbert-MIT.txt"]
+dependencies = []
+
+[project.optional-dependencies]
+local = ["torch==2.14.0", "transformers==5.17.0", "safetensors==0.8.0", "huggingface_hub==1.32.0", "numpy==2.5.3"]
+demo = ["waitress==3.0.2"]
+
+[tool.setuptools.packages.find]
+include = ["ticket_engine*"]
+exclude = ["tests*", "backend*", "projects*"]
+
+[tool.setuptools.package-data]
+ticket_engine = ["model-manifest.json", "_vendor/LICENSE"]

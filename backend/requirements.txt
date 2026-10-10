@@ -1,0 +1,2 @@
+# HTTP service only; model dependencies are locked in ../../requirements.lock.
+waitress==3.0.2
