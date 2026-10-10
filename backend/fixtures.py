@@ -1,11 +1,11 @@
 """Entirely synthetic demo scenarios; not customer records."""
 SEEDS = [
-    ('本月被重复扣款，请尽快退款', '我的专业版订阅这个月被扣了两次 299 元，银行账单都能查到。请今天帮我退回多扣的钱，这已经是第二次了。再不解决我就取消订阅，换别家产品。', '演示用户 01', '示例团队 01', '邮件', 'PRO', '1', '09:42'),
-    ('紧急：整个团队无法打开项目', '我们团队 18 个人从上午开始都打不开任何项目，页面一直报 502。两小时后要向客户交付，现在工作完全停了，请马上处理！', '演示用户 02', '示例团队 02', '在线客服', 'TEAM', '2', '09:38'),
-    ('想了解 30 人团队的企业版价格', '你好，我们正在比较协作工具，计划下个月给 30 人团队采购。想了解企业版报价、SSO 和发票支持，可以安排一次产品演示吗？', '演示用户 03', '示例团队 03', '官网表单', 'FREE', '3', '09:31'),
-    ('换手机后收不到登录验证码', '更换手机号后无法登录原来的账号，旧号码已经停用了。账号里还有不少文件，请问如何验证身份并修改绑定手机？不着急，明天回复也可以。', '演示用户 04', '示例团队 04', '邮件', 'PRO', '4', '09:24'),
-    ('Export keeps failing on large files', 'Hi team, PDF export fails whenever my document has more than 50 pages. Small documents work fine. I have tried Chrome and Firefox. Can you look into this this week?', '演示用户 05', '示例团队 05', '邮件', 'TEAM', '5', '09:17'),
-    ('服务体验太差了，我要取消续费', '上周反馈的问题到现在都没人跟进，客服一直让我等。我们已经决定迁移到其他工具，请取消自动续费，并退回本月未使用的费用。', '演示用户 06', '示例团队 06', '在线客服', 'PRO', '6', '09:08'),
-    ('有没有学生优惠？', '我是大三学生，想用你们的工具完成毕业设计，请问学生能申请优惠吗？需要准备什么证明材料？谢谢～', '演示用户 07', '示例团队 07', '官网表单', 'FREE', '7', '08:56'),
-    ('希望支持深色模式', '很喜欢你们的产品！我一般晚上工作，白色界面有点刺眼。希望以后能增加深色模式，不是紧急需求，给产品同学一个小建议。', '演示用户 08', '示例团队 08', '邮件', 'PRO', '8', '08:43'),
+    ('Charged twice for this month’s subscription', 'Our Pro subscription was charged twice this month, $29 each time. Please refund the extra charge today. This is the second time it has happened, and we will cancel if it is not resolved.', 'Demo user 01', 'Example team 01', 'Email', 'PRO', '1', '09:42'),
+    ('Our entire team is locked out of projects', 'None of our 18 team members can open a project. Every page returns a 502 error. We have a client delivery in two hours and cannot work. Please investigate immediately.', 'Demo user 02', 'Example team 02', 'Chat', 'TEAM', '2', '09:38'),
+    ('Enterprise pricing for a team of 30', 'We are comparing collaboration tools for 30 people next month. Could you share Enterprise pricing, SSO options and invoicing support? We would also like to book a demo.', 'Demo user 03', 'Example team 03', 'Web', 'FREE', '3', '09:31'),
+    ('Can’t sign in after changing my phone', 'I changed my phone number and can no longer receive verification codes. My old number is inactive. How can I verify my identity and recover the account? Tomorrow is fine; this is not urgent.', 'Demo user 04', 'Example team 04', 'Email', 'PRO', '4', '09:24'),
+    ('PDF export fails on large documents', 'PDF export fails whenever my document has more than 50 pages. Small documents work fine. I have tried Chrome and Firefox. Could you look into this this week?', 'Demo user 05', 'Example team 05', 'Email', 'TEAM', '5', '09:17'),
+    ('Please cancel our renewal', 'We reported a problem last week and still have no update. Support keeps asking us to wait. We have decided to move to another tool. Please cancel auto-renewal and refund the unused part of this month.', 'Demo user 06', 'Example team 06', 'Chat', 'PRO', '6', '09:08'),
+    ('Do you offer a student discount?', 'I am a university student and would like to use your tool for my final project. Is there a student discount, and what verification do you need? Thank you!', 'Demo user 07', 'Example team 07', 'Web', 'FREE', '7', '08:56'),
+    ('A small request: dark mode', 'I love the product! I often work at night and find the white interface a little bright. Please consider adding dark mode. This is just a suggestion, with no rush.', 'Demo user 08', 'Example team 08', 'Email', 'PRO', '8', '08:43'),
 ]

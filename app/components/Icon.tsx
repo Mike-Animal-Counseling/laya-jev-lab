@@ -19,9 +19,14 @@ type IconName =
   | "chip"
   | "mail"
   | "user"
-  | "stop";
+  | "stop"
+  | "upload"
+  | "download";
+// Keep upload/download icons in the existing vector icon system.
 
 const paths: Record<IconName, React.ReactNode> = {
+  upload: <path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />,
+  download: <path d="M12 3v13m-5-5 5 5 5-5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" />,
   inbox: (
     <>
       <path d="m4 4-2 9v6a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-6l-2-9Z" />

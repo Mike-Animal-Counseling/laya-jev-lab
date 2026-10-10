@@ -62,7 +62,7 @@ for (const extension of [".tsx", ".ts"]) {
     );
 }
 const TicketDesk = require("../app/TicketDesk.tsx").default;
-let root, tickets, calls, failRead;
+let root, tickets, calls, failRead, importErrors, failImport, connections;
 const clone = (value) => structuredClone(value);
 function analysis(provider) {
   return {
@@ -134,9 +134,8 @@ async function click(element) {
   });
 }
 function button(text) {
-  return [...document.querySelectorAll("button")].find((b) =>
-    b.textContent.includes(text),
-  );
+  const items = [...document.querySelectorAll("button")];
+  return items.find((b) => b.textContent.trim() === text) || items.find((b) => b.textContent.includes(text));
 }
 async function fill(element, value) {
   await act(async () => {
@@ -154,14 +153,33 @@ beforeEach(() => {
   tickets = [fixture("TK-1001"), fixture("TK-1002", false)];
   calls = [];
   failRead = false;
+  importErrors = false;
+  failImport = false;
+  connections = {email: false, zendesk: false, api: false};
   window.history.replaceState(null, "", "/laya-ft");
   global.fetch = async (url, options = {}) => {
     const parsed = new URL(url, window.location.href),
       p = parsed.searchParams.get("provider") || "laya-ft";
-    const body = options.body ? JSON.parse(options.body) : null;
+    const upload = options.body instanceof Blob;
+    const body = options.body && !upload ? JSON.parse(options.body) : null;
     calls.push({ path: parsed.pathname, body, headers: options.headers });
     if (parsed.pathname === "/api/session")
       return response({ csrf_token: "test-token" });
+    if (parsed.pathname === "/api/intake/status") return response(connections);
+    if (parsed.pathname === "/api/import/preview" || parsed.pathname === "/api/intake/preview") {
+      if (parsed.pathname === "/api/import/preview") assert.ok(upload);
+      return response({ sheet: "Tickets", ready: importErrors ? 0 : 1, duplicates: 0, errors: importErrors ? 1 : 0, available: 98,
+        rows: [{row: 2, status: importErrors ? "error" : "ready", issue: importErrors ? "Message is required." : "", ticket: importErrors ? {} : {
+          subject: "Imported demo", message: "Synthetic feedback", customer: "Demo user", company: "Example team", channel: "Excel",
+        }}] });
+    }
+    if (parsed.pathname === "/api/import") {
+      if (failImport) return response({ error: "Nothing saved. Try again." }, 503);
+      const imported = fixture("TK-1003", false);
+      Object.assign(imported, body.rows[0]);
+      tickets.unshift(imported);
+      return response({ tickets: tickets.map((t) => projected(t, p)), imported: 1, skipped: 0 }, 201);
+    }
     if (parsed.pathname === "/api/health")
       return response({
         status: "ready",
@@ -197,6 +215,8 @@ beforeEach(() => {
     } else if (parsed.pathname === "/api/reopen") {
       t.runs[p].status = "analyzed";
       t.runs[p].team = null;
+    } else if (parsed.pathname === "/api/resolve") {
+      t.runs[p].status = "done";
     } else throw new Error("Unexpected request " + url);
     t.runs[p].revision++;
     return response({ ticket: projected(t, p) });
@@ -214,23 +234,23 @@ test("important decisions visible; history and detailed scores expand on demand"
   await mount();
   assert.match(
     document.querySelector(".decision-summary").textContent,
-    /P1.*流失风险.*退款诉求/,
+    /P1.*Churn risk.*Refund/,
   );
   assert.equal(document.querySelector(".analysis-details").open, false);
   assert.equal(document.querySelector(".history-section").open, false);
-  assert.ok(button("确认分配"));
-  assert.equal(button("确认分配").disabled, false);
+  assert.ok(button("Assign"));
+  assert.equal(button("Assign").disabled, false);
   await click(document.querySelector(".analysis-details > summary"));
   assert.equal(document.querySelector(".analysis-details").open, true);
   assert.equal(document.querySelectorAll(".signal").length, 3);
   const preview = document.querySelector(".customer-message").textContent;
   assert.ok(preview.length < tickets[0].message.length);
-  await click(button("展开完整来信"));
+  await click(button("Read more"));
   assert.equal(
     document.querySelector(".customer-message").textContent,
     tickets[0].message,
   );
-  await click(button("收起来信"));
+  await click(button("Show less"));
   assert.equal(
     document.querySelector(".customer-message").textContent,
     preview,
@@ -239,7 +259,7 @@ test("important decisions visible; history and detailed scores expand on demand"
 
 test("comparison reads saved results without calling a model and highlights actual differences", async () => {
   await mount();
-  await click(button("模型对照"));
+  await click(button("Compare"));
   assert.equal(
     document.querySelectorAll(".comparison-table tr.different").length,
     1,
@@ -249,30 +269,30 @@ test("comparison reads saved results without calling a model and highlights actu
   const call = calls.find((c) => c.path === "/api/analyze");
   assert.equal(call.body.provider, "jev");
   assert.equal(call.headers["X-CSRF-Token"], "test-token");
-  await click(button("工单详情"));
+  await click(button("Ticket"));
   assert.equal(
     document.querySelector(".suggestion-heading h2").textContent,
-    "财务支持",
+    "Billing",
   );
 });
 
 test("low confidence requires a manual team; assignment and reopening retain model isolation", async () => {
   tickets[0].runs["laya-ft"].analysis.confidence = 0.3;
   await mount();
-  assert.equal(button("确认分配").disabled, true);
+  assert.equal(button("Assign").disabled, true);
   await act(async () => {
     const select = document.querySelector("#team-choice");
     select.value = "客户成功";
     select.dispatchEvent(new Event("change", { bubbles: true }));
   });
-  assert.equal(button("确认分配").disabled, false);
-  await click(button("确认分配"));
+  assert.equal(button("Assign").disabled, false);
+  await click(button("Assign"));
   assert.equal(
     calls.find((c) => c.path === "/api/assign").body.expected_revision,
     1,
   );
   assert.equal(tickets[0].runs.jev.status, "analyzed");
-  await click(button("重新打开工单"));
+  await click(button("Reopen"));
   assert.equal(tickets[0].runs["laya-ft"].status, "analyzed");
   assert.equal(tickets[0].runs["laya-ft"].team, null);
 });
@@ -292,28 +312,28 @@ test("switching tickets updates URL, clears disclosure state and preserves model
       .getAttribute("href"),
     "/jev?ticket=TK-1002",
   );
-  assert.ok(button("使用 Laya 分析"));
+  assert.ok(button("Analyze"));
 });
 
 test("search empty state and refresh failure preserve existing tickets", async () => {
   await mount();
-  await fill(document.querySelector('[aria-label="搜索工单"]'), "找不到的内容");
+  await fill(document.querySelector('[aria-label="Search tickets"]'), "no matching text");
   assert.equal(document.querySelectorAll(".ticket-row").length, 0);
-  assert.match(document.querySelector(".empty-list").textContent, /没有匹配/);
-  await click(document.querySelector('[aria-label="清除搜索"]'));
+  assert.match(document.querySelector(".empty-list").textContent, /No matches/);
+  await click(document.querySelector('[aria-label="Clear search"]'));
   assert.equal(document.querySelectorAll(".ticket-row").length, 2);
   failRead = true;
-  await click(document.querySelector('[aria-label="刷新工单"]'));
+  await click(document.querySelector('[aria-label="Refresh"]'));
   assert.match(
     document.querySelector('[role="alert"]').textContent,
-    /无法连接/,
+    /Local service unavailable/,
   );
   assert.equal(document.querySelectorAll(".ticket-row").length, 2);
 });
 
 test("new ticket sends an idempotency key and shows saved content without executing HTML", async () => {
   await mount();
-  await click(button("新建工单"));
+  await click(button("New ticket"));
   await fill(
     document.querySelector("#ticket-subject"),
     "<img src=x onerror=alert(1)>",
@@ -341,13 +361,13 @@ test("analyzing from the pending filter keeps the completed ticket in view", asy
   await mount();
   await click(
     [...document.querySelectorAll(".filters button")].find(
-      (b) => b.textContent === "待分析",
+      (b) => b.textContent === "Pending",
     ),
   );
   assert.equal(document.querySelector(".subject").textContent, "另一个工单");
-  await click(button("使用 Laya 分析"));
+  await click(button("Analyze"));
   assert.equal(document.querySelector(".subject").textContent, "另一个工单");
-  assert.ok(button("确认分配"));
+  assert.ok(button("Assign"));
 });
 
 test("batch stop finishes the active ticket without starting the next request", async () => {
@@ -362,12 +382,86 @@ test("batch stop finishes the active ticket without starting the next request", 
     return originalFetch(url, options);
   };
   await mount();
-  await click(button("分析待处理工单"));
-  await click(button("完成当前后停止"));
+  await click(button("Analyze all"));
+  await click(button("Stop"));
   await act(async () => {
     release();
   });
   assert.equal(calls.filter((c) => c.path === "/api/analyze").length, 1);
   assert.equal(tickets[0].runs["laya-ft"].status, "analyzed");
   assert.equal(tickets[1].runs["laya-ft"].status, "pending");
+});
+
+async function uploadFile() {
+  await act(async () => {
+    const input = document.querySelector('[aria-label="Import file"]');
+    Object.defineProperty(input, "files", { configurable: true, value: [new File(["test workbook"], "tickets.xlsx")] });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+test("Excel import previews locally and a failed save retains its retry identity", async () => {
+  await mount();
+  await click(document.querySelector(".import-trigger"));
+  assert.equal(button("Import tickets").disabled, true);
+  await uploadFile();
+  assert.equal(tickets.length, 2);
+  assert.equal(document.querySelectorAll(".import-preview tbody tr").length, 1);
+  assert.equal(calls.filter((c) => c.path === "/api/import").length, 0);
+  failImport = true;
+  await click(button("Import 1 ticket"));
+  assert.equal(document.querySelector("dialog").open, true);
+  const firstKey = calls.find((c) => c.path === "/api/import").body.request_id;
+  failImport = false;
+  await click(button("Import 1 ticket"));
+  assert.equal(calls.filter((c) => c.path === "/api/import")[1].body.request_id, firstKey);
+  assert.equal(tickets.length, 3);
+  assert.equal(document.querySelector(".subject").textContent, "Imported demo");
+  assert.equal(document.querySelector("dialog").open, false);
+  assert.equal(calls.filter((c) => c.path === "/api/analyze").length, 0);
+});
+
+test("Excel row errors block import and preserve the inbox", async () => {
+  importErrors = true;
+  await mount();
+  await click(document.querySelector(".import-trigger"));
+  await uploadFile();
+  assert.equal(button("Import tickets").disabled, true);
+  assert.match(document.querySelector(".import-preview").textContent, /Message is required/);
+  await click(button("Cancel"));
+  assert.equal(tickets.length, 2);
+  assert.equal(calls.filter((c) => c.path === "/api/import").length, 0);
+});
+
+test("Zendesk sync requires configuration and remains a preview until confirmed", async () => {
+  await mount();
+  await click(document.querySelector(".import-trigger"));
+  await click(button("Zendesk"));
+  assert.equal(button("Sync").disabled, true);
+  await click(button("Cancel"));
+  connections.zendesk = true;
+  await click(document.querySelector(".import-trigger"));
+  await click(button("Zendesk"));
+  assert.equal(button("Sync").disabled, false);
+  await click(button("Sync"));
+  assert.deepEqual(calls.find((c) => c.path === "/api/intake/preview").body, {source: "zendesk", provider: "laya-ft"});
+  assert.equal(tickets.length, 2);
+  assert.equal(calls.filter((c) => c.path === "/api/import").length, 0);
+  assert.equal(document.querySelectorAll(".import-preview tbody tr").length, 1);
+  await click(button("Excel / CSV"));
+  assert.equal(document.querySelector(".import-preview"), null);
+  assert.equal(button("Import tickets").disabled, true);
+});
+
+test("Done moves a ticket out of Inbox and Reopen restores its active state", async () => {
+  await mount();
+  await click(document.querySelector(".resolve-action"));
+  assert.equal(document.querySelectorAll(".ticket-row").length, 1);
+  assert.equal(tickets[0].runs["laya-ft"].status, "done");
+  assert.equal(tickets[0].runs.jev.status, "analyzed");
+  await click(document.querySelector('nav [aria-label="Done"]'));
+  assert.equal(document.querySelector(".subject").textContent, tickets[0].subject);
+  await click(document.querySelector(".resolve-action"));
+  assert.equal(tickets[0].runs["laya-ft"].status, "analyzed");
+  assert.equal(document.querySelectorAll(".ticket-row").length, 2);
 });

@@ -22,6 +22,12 @@ New ticket contents, results and history persist in `var/`. They are excluded fr
 
 Stop the demo before deleting its `var/` directory to remove its database and backups. Resetting demo tickets creates a backup and is not an erasure action. Remove this project's `.env.local` separately to remove the locally stored Jev credential. Review any browser downloads separately. These operations do not revoke a credential at the provider or erase data already sent to the provider.
 
+## Intake connections
+
+Excel/CSV/email preview uploads are parsed in memory; files are not stored. Confirmed rows and submitted forms are saved to the same local ticket database. Email attachments are ignored and HTML bodies are converted to text. These inputs may contain personal information; the source release ships only synthetic examples.
+
+Optional Zendesk/REST/IMAP settings are read only from this repository's `.env.local`. Credentials are sent only to the explicitly configured verified TLS destination when the operator clicks Sync, and are never returned to the browser or included in exported tickets. Sync reads external data into a preview; it does not send replies, alter the source system, call an AI model or automatically save the preview. See [INTAKE.md](INTAKE.md).
+
 ## Publishing
 
 Use the allowlisted source archive or its independently initialized repository. Do not add runtime state, screenshots containing personal data, shell transcripts, unrelated notebooks, local IDE settings, or unreviewed artifacts. Git author names/emails and commit messages are public metadata and need their own review; configure a chosen public identity and GitHub privacy email before the first commit.

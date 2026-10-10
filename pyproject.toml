@@ -14,7 +14,7 @@ dependencies = []
 
 [project.optional-dependencies]
 local = ["torch==2.14.0", "transformers==5.17.0", "safetensors==0.8.0", "huggingface_hub==1.32.0", "numpy==2.5.3"]
-demo = ["waitress==3.0.2"]
+demo = ["waitress==3.0.2", "openpyxl==3.1.5", "defusedxml==0.7.1"]
 
 [tool.setuptools.packages.find]
 include = ["ticket_engine*"]

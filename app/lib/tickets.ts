@@ -60,16 +60,25 @@ export const teams = [
   "客户成功",
 ];
 export const labels: Record<string, string> = {
-  refund: "退款 / 账单",
-  technical: "技术故障",
-  sales: "售前咨询",
-  account: "账号问题",
-  other: "其他请求",
+  refund: "Billing",
+  technical: "Technical",
+  sales: "Sales",
+  account: "Accounts",
+  other: "General",
 };
+export const teamLabels: Record<string, string> = {
+  财务支持: "Billing",
+  技术支持: "Technical",
+  售前顾问: "Sales",
+  账号服务: "Accounts",
+  综合服务: "General",
+  客户成功: "Customer success",
+};
+export const teamLabel = (team: string) => teamLabels[team] || team;
 export const priorities: Record<string, string> = {
-  P1: "优先处理",
-  P2: "尽快处理",
-  P3: "常规处理",
+  P1: "Urgent",
+  P2: "High",
+  P3: "Normal",
 };
 export const pct = (n: number) => `${Math.round(n * 100)}%`;
 export const project = (t: Ticket, p: Provider): Ticket => ({

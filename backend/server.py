@@ -24,10 +24,14 @@ from domain import MAX_TICKETS, empty_run, seed_tickets, migrate
 from rubric import CATEGORIES, QUESTIONS, TEAMS
 from classification import RUBRIC_ID, fingerprint, normalize, paired_summary
 from storage import TicketStore
+from ticket_import import (MAX_UPLOAD, MAX_IMPORT_BODY, MAX_ROWS, ImportError as TicketImportError,
+                           parse_excel, classify_rows, normalize_row, row_key, batch_digest, template_bytes)
+from intake_sources import parse_csv, parse_eml
+from connectors import connection_status, pull_api, pull_mail
 
 DATA = PROJECT / 'var/tickets.json'
 PROVIDERS = {'jev': jev_provider, 'laya-ft': finetuned_provider}
-PROVIDER_NAMES = {'jev': 'Jev', 'laya-ft': 'Laya 客服版'}
+PROVIDER_NAMES = {'jev': 'Jev', 'laya-ft': 'Laya'}
 state_lock = threading.RLock()
 inference_locks = {name: threading.Lock() for name in PROVIDERS}
 generation = 0
@@ -70,23 +74,23 @@ def statuses():
 
 def get_provider(name):
     if not isinstance(name, str) or name not in PROVIDERS:
-        raise RequestError('无效模型')
+        raise RequestError('Invalid model')
     return name
 
 
 def find_ticket(items, ticket_id):
     if not isinstance(ticket_id, str):
-        raise RequestError('无效工单编号')
+        raise RequestError('Invalid ticket ID')
     ticket = next((item for item in items if item['id'] == ticket_id), None)
     if ticket is None:
-        raise RequestError('工单不存在', 404)
+        raise RequestError('Ticket not found', 404)
     return ticket
 
 
 def check_revision(run, body):
     expected = body.get('expected_revision')
     if expected is not None and (type(expected) is not int or expected != run.get('revision', 0)):
-        raise RequestError('工单结果已在其他窗口更新，请刷新后再操作。', 409)
+        raise RequestError('Ticket changed in another window. Refresh first.', 409)
 
 
 def append_history(run, label, now):
@@ -105,7 +109,7 @@ class WriteLimiter:
             while self.times and self.times[0] <= now - 60:
                 self.times.popleft()
             if len(self.times) >= 120:
-                raise RequestError('操作过于频繁，请稍后重试。', 429)
+                raise RequestError('Too many requests. Try again shortly.', 429)
             self.times.append(now)
 
 
@@ -128,11 +132,15 @@ def guard(headers, method):
     if method == 'POST':
         token = headers.get('X-CSRF-Token', '')
         if not secrets.compare_digest(token, CSRF_TOKEN):
-            raise RequestError('安全会话已过期，请刷新后重试。', 403)
+            raise RequestError('Session expired. Refresh and retry.', 403)
         limiter.check()
 
 
 def route_get(path, provider):
+    if path == '/api/intake/status':
+        return 200, connection_status()
+    if path == '/api/import/template':
+        return 200, template_bytes()
     if path == '/api/session':
         return 200, {'csrf_token': CSRF_TOKEN}
     if path == '/api/health':
@@ -152,28 +160,75 @@ def route_get(path, provider):
 def route_post(path, body, provider):
     global generation
     now = datetime.now().astimezone().strftime('%m-%d %H:%M')
+    if path == '/api/intake/preview':
+        source = body.get('source')
+        sheet, parsed = pull_mail() if source == 'email' else pull_api(source)
+        return import_preview(sheet, parsed)
+    if path == '/api/intake/form':
+        request_id = body.get('request_id')
+        row = {key: body.get(key, '') for key in ('subject', 'message', 'customer', 'company')}
+        row.update(channel='Form', source='form', source_id=request_id if isinstance(request_id, str) else '')
+        row = normalize_row(row)
+        status, data = route_post('/api/import', {'rows': [row], 'request_id': request_id}, provider)
+        ticket = next(t for t in data['tickets'] if row_key(t) == row_key(row))
+        return status, {'ticket': ticket}
+    if path == '/api/import':
+        raw_rows = body.get('rows')
+        if not isinstance(raw_rows, list) or not 1 <= len(raw_rows) <= MAX_ROWS:
+            raise RequestError('Import between 1 and 100 tickets.')
+        rows = [normalize_row(row) for row in raw_rows]
+        try:
+            request_id = str(UUID(body.get('request_id')))
+        except (ValueError, AttributeError, TypeError):
+            raise RequestError('A valid import request ID is required.') from None
+        digest = batch_digest(rows)
+        with state_lock:
+            previous = [t for t in tickets if t.get('import_request_id') == request_id]
+            if previous:
+                if any(t.get('import_digest') != digest for t in previous):
+                    raise RequestError('This import request ID was used for different tickets.', 409)
+                return 200, {'tickets': [project(copy.deepcopy(t), provider) for t in tickets],
+                             'imported': len(previous), 'skipped': len(rows) - len(previous)}
+            seen = {row_key(t) for t in tickets}
+            fresh = []
+            for row in rows:
+                key = row_key(row)
+                if key not in seen:
+                    fresh.append(row)
+                    seen.add(key)
+            if len(tickets) + len(fresh) > MAX_TICKETS:
+                raise RequestError(f'Only {MAX_TICKETS - len(tickets)} ticket slots remain. Reduce the import.', 409)
+            number = max((int(t['id'].split('-')[1]) for t in tickets), default=1040)
+            added = [{**row, 'id': f'TK-{number + i + 1}', 'plan': 'LOCAL', 'avatar': 'XLS',
+                      'time': now, 'reference': None, 'import_request_id': request_id, 'import_digest': digest,
+                      'runs': {name: empty_run(now) for name in PROVIDERS}}
+                     for i, row in enumerate(fresh)]
+            if added:
+                commit([*added, *tickets], 'import', provider=provider)
+            return 201, {'tickets': [project(copy.deepcopy(t), provider) for t in tickets],
+                         'imported': len(added), 'skipped': len(rows) - len(added)}
     if path == '/api/tickets':
         subject, message = body.get('subject', ''), body.get('message', '')
         if not isinstance(subject, str) or not isinstance(message, str) or not 1 <= len(subject.strip()) <= 120 or not 1 <= len(message.strip()) <= 3000:
-            raise RequestError('标题需要 1–120 字，正文需要 1–3000 字')
+            raise RequestError('Subject: 1–120 characters. Message: 1–3000 characters.')
         request_id = body.get('request_id')
         if request_id is not None:
             try:
                 request_id = str(UUID(request_id))
             except (ValueError, AttributeError, TypeError):
-                raise RequestError('无效请求编号') from None
+                raise RequestError('Invalid request ID') from None
         with state_lock:
             if request_id:
                 existing = next((t for t in tickets if t.get('request_id') == request_id), None)
                 if existing:
                     if existing['subject'] != subject.strip() or existing['message'] != message.strip():
-                        raise RequestError('同一请求编号不能用于不同内容。', 409)
+                        raise RequestError('Request ID already used for different content.', 409)
                     return 200, {'ticket': project(copy.deepcopy(existing), provider)}
             if len(tickets) >= MAX_TICKETS:
-                raise RequestError('本地工作空间最多保留 100 条工单，请先导出备份。', 409)
+                raise RequestError('This workspace holds up to 100 tickets. Export before resetting.', 409)
             number = max((int(t['id'].split('-')[1]) for t in tickets), default=1040) + 1
             ticket = {'id': f'TK-{number}', 'subject': subject.strip(), 'message': message.strip(),
-                      'customer': '本地用户', 'company': '自定义工单', 'channel': '手动创建', 'plan': 'LOCAL',
+                      'customer': 'Local user', 'company': 'Custom ticket', 'channel': 'Manual', 'plan': 'LOCAL',
                       'avatar': 'YOU', 'time': now, 'reference': None, 'request_id': request_id,
                       'runs': {name: empty_run(now) for name in PROVIDERS}}
             commit([ticket, *tickets], 'create', ticket['id'], provider)
@@ -186,7 +241,7 @@ def route_post(path, body, provider):
             commit(seed_tickets(), 'reset')
             generation += 1
             return 200, {'tickets': [project(copy.deepcopy(t), provider) for t in tickets]}
-    if path not in ('/api/analyze', '/api/assign', '/api/reference', '/api/reopen'):
+    if path not in ('/api/analyze', '/api/assign', '/api/reference', '/api/reopen', '/api/resolve'):
         raise RequestError('Not found', 404)
     if path != '/api/analyze':
         with state_lock:
@@ -197,34 +252,41 @@ def route_post(path, body, provider):
             if path == '/api/reference':
                 category = body.get('category')
                 if category is not None and (not isinstance(category, str) or category not in CATEGORIES):
-                    raise RequestError('无效分类')
+                    raise RequestError('Invalid category')
                 ticket['reference'] = {'category': category, 'source': 'human', 'updated_at': now} if category else None
             else:
                 if inference_locks[provider].locked():
-                    raise RequestError('请等待分析完成', 409)
-                if path == '/api/reopen':
-                    if run['status'] != 'assigned':
-                        raise RequestError('工单当前无需重新打开', 409)
+                    raise RequestError('Wait for analysis to finish.', 409)
+                if path == '/api/resolve':
+                    if run['status'] == 'done':
+                        return 200, {'ticket': project(copy.deepcopy(ticket), provider)}
+                    run['status'] = 'done'
+                    append_history(run, 'Marked done', now)
+                elif path == '/api/reopen':
+                    if run['status'] not in ('assigned', 'done'):
+                        raise RequestError('Ticket is already open.', 409)
                     run.update(status='analyzed' if run['analysis'] else 'pending', team=None)
-                    append_history(run, '已重新打开，等待复核', now)
+                    append_history(run, 'Ticket reopened', now)
                 else:
+                    if run['status'] == 'done':
+                        raise RequestError('Reopen the ticket before assigning.', 409)
                     analysis = run['analysis']
                     if not analysis:
-                        raise RequestError('请先分析工单', 409)
+                        raise RequestError('Analyze the ticket first.', 409)
                     expected_model = statuses().get(provider, {}).get('model')
                     if analysis.get('rubric_id') != RUBRIC_ID or analysis.get('input_id') != fingerprint({'subject': ticket['subject'], 'message': ticket['message']}) or (expected_model and analysis.get('model') != expected_model):
-                        raise RequestError('工单内容、模型或规则已更新，请重新分析。', 409)
+                        raise RequestError('Ticket, model or rules changed. Analyze again.', 409)
                     if analysis['confidence'] < .65 and not body.get('team'):
-                        raise RequestError('请根据原文手动选择团队', 409)
+                        raise RequestError('Choose a team manually.', 409)
                     team = body.get('team', analysis['suggested_team'])
                     if not isinstance(team, str) or team not in set(TEAMS.values()) | {'客户成功'}:
-                        raise RequestError('无效团队')
+                        raise RequestError('Invalid team')
                     if run['status'] == 'assigned':
                         if run['team'] != team:
-                            raise RequestError('请先重新打开工单，再调整分配。', 409)
+                            raise RequestError('Reopen the ticket before changing its team.', 409)
                         return 200, {'ticket': project(ticket, provider)}
                     run.update(team=team, status='assigned')
-                    append_history(run, '已分配给 ' + team, now)
+                    append_history(run, 'Assigned to ' + team, now)
             commit(next_tickets, path.rsplit('/', 1)[-1], ticket['id'], provider)
             return 200, {'ticket': project(copy.deepcopy(ticket), provider)}
 
@@ -235,12 +297,12 @@ def route_post(path, body, provider):
         ticket = find_ticket(tickets, body.get('id'))
         run = ticket['runs'][provider]
         check_revision(run, body)
-        if run['status'] == 'assigned' and body.get('evaluation') is not True:
-            raise RequestError('请先重新打开已分配的工单，再分析。', 409)
+        if run['status'] in ('assigned', 'done') and body.get('evaluation') is not True:
+            raise RequestError('Reopen the ticket before analyzing.', 409)
         if statuses().get(provider, {}).get('status') != 'ready':
-            raise RequestError('所选模型尚未就绪，请检查模型状态。', 503)
+            raise RequestError('The selected model is not ready.', 503)
         if not lock.acquire(blocking=False):
-            raise RequestError('该模型正在分析，请稍后重试。', 409)
+            raise RequestError('This model is busy. Try again shortly.', 409)
         current_generation = generation
         state = {'subject': ticket['subject'], 'message': ticket['message']}
     try:
@@ -252,21 +314,31 @@ def route_post(path, body, provider):
                 analysis['field_sources'] = prediction.get('field_sources', {})
                 analysis['checkpoint_sha256'] = prediction.get('checkpoint_sha256')
         except (ValueError, KeyError, TypeError, AttributeError):
-            raise RequestError('模型返回结果不完整，未保存。请重试。', 502) from None
+            raise RequestError('Incomplete model response. Nothing saved.', 502) from None
         with state_lock:
             if current_generation != generation:
-                raise RequestError('工单已重置，旧分析结果已丢弃。', 409)
+                raise RequestError('Workspace reset. Old result discarded.', 409)
             next_tickets = copy.deepcopy(tickets)
             updated = find_ticket(next_tickets, body['id'])
             result = updated['runs'][provider]
             result['analysis'] = analysis
-            if result['status'] != 'assigned':
+            if result['status'] not in ('assigned', 'done'):
                 result.update(status='analyzed', team=None)
-            append_history(result, PROVIDER_NAMES[provider] + ' 已完成分析', now)
+            append_history(result, PROVIDER_NAMES[provider] + ' analysis complete', now)
             commit(next_tickets, 'analyze', updated['id'], provider)
             return 200, {'ticket': project(copy.deepcopy(updated), provider)}
     finally:
         lock.release()
+
+
+def import_preview(sheet, parsed):
+    with state_lock:
+        rows = classify_rows(parsed, tickets)
+        available = MAX_TICKETS - len(tickets)
+    return 200, {'sheet': sheet, 'rows': rows, 'available': available,
+                 'ready': sum(r['status'] == 'ready' for r in rows),
+                 'duplicates': sum(r['status'] == 'duplicate' for r in rows),
+                 'errors': sum(r['status'] == 'error' for r in rows)}
 
 
 def dispatch(method, path, headers, stream):
@@ -277,23 +349,33 @@ def dispatch(method, path, headers, stream):
         return route_get(url.path, get_provider(query_provider or 'laya-ft'))
     if method != 'POST':
         raise RequestError('Method not allowed', 405)
-    if headers.get('Content-Type', '').split(';', 1)[0].strip().lower() != 'application/json':
+    file_upload = url.path == '/api/import/preview'
+    content_type = headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+    parsers = {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': parse_excel,
+               'text/csv': parse_csv, 'message/rfc822': parse_eml}
+    if file_upload and content_type not in parsers:
+        raise RequestError('Choose an .xlsx, .csv or .eml file.', 415)
+    if not file_upload and content_type != 'application/json':
         raise RequestError('JSON body required', 415)
     length = headers.get('Content-Length', '')
     if not length.isdecimal():
         raise RequestError('Invalid content length')
     size = int(length)
-    if not 0 < size <= MAX_BODY:
+    limit = MAX_UPLOAD if file_upload else MAX_IMPORT_BODY if url.path == '/api/import' else MAX_BODY
+    if not 0 < size <= limit:
         raise RequestError('Request is too large or empty', 413)
     raw = stream.read(size)
     if len(raw) != size:
         raise RequestError('Incomplete request body')
+    if file_upload:
+        get_provider(query_provider or 'laya-ft')
+        return import_preview(*parsers[content_type](raw))
     body = json.loads(raw)
     if not isinstance(body, dict):
         raise RequestError('Expected an object')
     provider = get_provider(body.get('provider', query_provider or 'laya-ft'))
     if query_provider and query_provider != provider:
-        raise RequestError('模型参数不一致')
+        raise RequestError('Model parameters do not match.')
     return route_post(url.path, body, provider)
 
 
@@ -308,21 +390,27 @@ def application(environ, start_response):
         path += '?' + environ['QUERY_STRING']
     try:
         status, value = dispatch(environ['REQUEST_METHOD'], path, headers, environ['wsgi.input'])
+    except TicketImportError as exc:
+        status, value = 400, {'error': str(exc)}
     except (RequestError, jev_provider.ProviderError) as exc:
         status, value = exc.status, {'error': str(exc)}
     except (ValueError, TypeError, KeyError, UnicodeError, RecursionError):
-        status, value = 400, {'error': '请求格式无效'}
+        status, value = 400, {'error': 'Invalid request'}
     except (OSError, sqlite3.Error):
         logger.error('storage_failure request_id=%s', request_id)
-        status, value = 503, {'error': '数据未保存，请检查磁盘空间与访问权限后重试。'}
+        status, value = 503, {'error': 'Nothing saved. Check disk space and permissions.'}
     except Exception as exc:
         logger.error('request_failure request_id=%s type=%s', request_id, type(exc).__name__)
-        status, value = 500, {'error': '操作失败，请刷新后重试。'}
-    payload = json.dumps(value, ensure_ascii=False, allow_nan=False).encode('utf-8')
-    response_headers = [('Content-Type', 'application/json; charset=utf-8'), ('Content-Length', str(len(payload))),
+        status, value = 500, {'error': 'Request failed. Refresh and retry.'}
+    binary = isinstance(value, bytes)
+    payload = value if binary else json.dumps(value, ensure_ascii=False, allow_nan=False).encode('utf-8')
+    content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if binary else 'application/json; charset=utf-8'
+    response_headers = [('Content-Type', content_type), ('Content-Length', str(len(payload))),
                         ('Cache-Control', 'no-store'), ('X-Content-Type-Options', 'nosniff'),
                         ('X-Frame-Options', 'DENY'), ('Referrer-Policy', 'no-referrer'),
                         ('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'"), ('X-Request-ID', request_id)]
+    if binary:
+        response_headers.append(('Content-Disposition', 'attachment; filename="tickets-template.xlsx"'))
     if status == 429:
         response_headers.append(('Retry-After', '60'))
     if status == 405:
@@ -341,7 +429,7 @@ if __name__ == '__main__':
     # Bind before any migration/write: a second process must not overwrite state
     # before discovering that the workspace is already served by another process.
     http = create_server(application, host='127.0.0.1', port=8780, threads=8, connection_limit=32,
-                         max_request_header_size=8192, max_request_body_size=MAX_BODY, channel_timeout=30,
+                         max_request_header_size=8192, max_request_body_size=max(MAX_BODY, MAX_UPLOAD, MAX_IMPORT_BODY), channel_timeout=30,
                          expose_tracebacks=False, clear_untrusted_proxy_headers=True, ident='ModelLab')
     try:
         save()

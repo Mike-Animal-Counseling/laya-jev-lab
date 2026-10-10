@@ -36,6 +36,12 @@ The CI workflow checks source privacy, backend contracts, frontend interactions,
 
 If a credential was ever committed or publicly shared, removing the visible file alone is insufficient: revoke/rotate the credential and address repository history. This release has not copied any prior repository history.
 
+## Intake controls
+
+Excel uploads have compressed and expanded size bounds, XML entity protection, fixed sheet/row/column limits, and reject macros, external links and formulas. CSV/email parsers are bounded; HTML email is converted to text and attachments are ignored. All imported rows are validated again at commit, duplicate identities are scoped to their source, and the entire batch is stored in one transaction with idempotent retry protection.
+
+Read-only connectors use repository-local credentials, TLS verification, public DNS address validation and pinning, fixed Zendesk destinations, response limits and safe errors. API redirects, implicit proxies and private-network endpoints are not accepted. IMAP uses a read-only folder and `BODY.PEEK`. Connection status exposes no credentials. Customer-facing hosting, provider OAuth onboarding and unrestricted webhooks are outside this local workspace's scope.
+
 ## Reporting
 
 Use the repository's private security reporting channel if the maintainer enables one. Do not paste credentials, personal tickets, databases or exploit payloads containing private data into public issues. No personal contact address is embedded in this template.

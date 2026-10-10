@@ -5,6 +5,7 @@ import Link from "next/link";
 import Icon from "./components/Icon";
 import ModelMark from "./components/ModelMark";
 import ModelComparison from "./components/ModelComparison";
+import ImportTickets from "./components/ImportTickets";
 import {
   names,
   teams,
@@ -12,6 +13,7 @@ import {
   priorities,
   pct,
   project,
+  teamLabel,
   type Provider,
   type Ticket,
   type Health,
@@ -29,7 +31,7 @@ function Signal({ label, value }: { label: string; value: number }) {
       <div className="signal-track">
         <i style={{ width: pct(value) }} />
       </div>
-      <strong>{value >= 0.5 ? "有" : "无"}</strong>
+      <strong>{value >= 0.5 ? "Yes" : "No"}</strong>
       <small>{pct(value)}</small>
     </div>
   );
@@ -47,7 +49,7 @@ export default function TicketDesk({
   const [search, setSearch] = useState("");
   const [health, setHealth] = useState<Health>({
     status: "loading",
-    message: "正在连接",
+    message: "Connecting",
   });
   const [rubricId, setRubricId] = useState("");
   const [busy, setBusy] = useState<{ id: string; provider: Provider } | null>(
@@ -60,10 +62,9 @@ export default function TicketDesk({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [modal, setModal] = useState<"new" | "rules" | "reset" | null>(null);
+  const [modal, setModal] = useState<"new" | "rules" | "reset" | "import" | null>(null);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [promptText, setPromptText] = useState("正在加载…");
   const [teamChoice, setTeamChoice] = useState({ id: "", team: "" });
   const [detailTab, setDetailTab] = useState("ticket");
   const [mobileDetail, setMobileDetail] = useState(false);
@@ -89,7 +90,7 @@ export default function TicketDesk({
       })
       .catch(() => {
         if (active)
-          setError("无法连接工单服务，请确认本地后端已启动，再刷新重试。");
+          setError("Start the local service, then refresh.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -105,7 +106,7 @@ export default function TicketDesk({
             setRubricId(data.rubric_id);
           }
         } catch {
-          if (active) setHealth({ status: "error", message: "服务未连接" });
+          if (active) setHealth({ status: "error", message: "Offline" });
         }
       }
       if (active) timer = setTimeout(ping, 5000);
@@ -150,7 +151,7 @@ export default function TicketDesk({
 
   const modelHealth = (p: Provider) =>
     health.providers?.[p] ||
-    (p === provider ? health : { status: "loading", message: "等待连接" });
+    (p === provider ? health : { status: "loading", message: "Connecting" });
   const isStale = (t: Ticket, p: Provider = provider) => {
     const a = t.runs[p].analysis;
     return (
@@ -162,22 +163,24 @@ export default function TicketDesk({
     );
   };
   const reviewCount = tickets.filter(
-    (t) => t.analysis?.needs_review && t.status !== "assigned",
+    (t) => t.analysis?.needs_review && !["assigned", "done"].includes(t.status),
   ).length;
   const assignedCount = tickets.filter((t) => t.status === "assigned").length;
+  const doneCount = tickets.filter((t) => t.status === "done").length;
   const pending = tickets.filter(
-    (t) => t.status !== "assigned" && (!t.analysis || isStale(t)),
+    (t) => !["assigned", "done"].includes(t.status) && (!t.analysis || isStale(t)),
   );
   const filtered = tickets.filter(
     (t) =>
-      (view === "all" ||
+      ((view === "all" && t.status !== "done") ||
         (view === "review" &&
           t.analysis?.needs_review &&
-          t.status !== "assigned") ||
-        (view === "assigned" && t.status === "assigned")) &&
+          !["assigned", "done"].includes(t.status)) ||
+        (view === "assigned" && t.status === "assigned") ||
+        (view === "done" && t.status === "done")) &&
       (filter === "all" ||
         (filter === "pending"
-          ? t.status !== "assigned" && (!t.analysis || isStale(t))
+          ? !["assigned", "done"].includes(t.status) && (!t.analysis || isStale(t))
           : t.status === filter && !isStale(t))) &&
       `${t.subject} ${t.customer} ${t.id} ${t.message}`
         .toLowerCase()
@@ -191,10 +194,10 @@ export default function TicketDesk({
   const locked = !!busy || batch || saving || refreshing || loading;
   const viewName =
     view === "review"
-      ? "需要关注"
+      ? "Flag"
       : view === "assigned"
-        ? "已分配工单"
-        : "工单收件箱";
+        ? "Assigned"
+        : view === "done" ? "Done" : "Inbox";
   const update = (next: Ticket) => {
     setTickets((previous) =>
       previous.map((t) => (t.id === next.id ? project(next, provider) : t)),
@@ -270,7 +273,7 @@ export default function TicketDesk({
       setProgress({ done, total: queue.length });
     }
     setBatch(false);
-    setNotice(`本次完成 ${done} / ${queue.length} 条分析`);
+    setNotice(`Analyzed ${done} of ${queue.length}`);
   }
   async function assign() {
     if (!ticket || !analysis) return;
@@ -283,7 +286,7 @@ export default function TicketDesk({
         expected_revision: ticket.revision,
       });
       update(d.ticket);
-      setNotice("已记录团队分配");
+      setNotice("Assigned");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -314,7 +317,7 @@ export default function TicketDesk({
       setSubject("");
       setMessage("");
       createAttempt.current = { input: "", key: "" };
-      setNotice("工单已创建，可以开始分析");
+      setNotice("Ticket created");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -333,7 +336,7 @@ export default function TicketDesk({
       update(d.ticket);
       changeView("all");
       chooseTicket(d.ticket.id);
-      setNotice("已重新打开，可以复核或重新分析");
+      setNotice("Ticket reopened");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -353,7 +356,7 @@ export default function TicketDesk({
       link.download = `model-lab-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setNotice("工单已导出，请妥善保管客户信息");
+      setNotice("Export downloaded");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -369,28 +372,35 @@ export default function TicketDesk({
       setSelected(d.tickets[0]?.id || "");
       changeView("all");
       setModal(null);
-      setNotice("演示工单已恢复");
+      setNotice("Demo restored");
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSaving(false);
     }
   }
-  async function openRules() {
-    setModal("rules");
-    setPromptText("正在加载…");
+  async function resolve() {
+    if (!ticket || locked) return;
+    setSaving(true);
+    setError("");
     try {
-      const d = await api("rubric", provider);
-      setPromptText(JSON.stringify(d.questions, null, 2));
+      const data = await api("resolve", provider, { id: ticket.id, expected_revision: ticket.revision });
+      update(data.ticket);
+      setNotice("Ticket marked done");
     } catch (e) {
-      setPromptText((e as Error).message);
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
     }
+  }
+  function openRules() {
+    setModal("rules");
   }
 
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
-        跳到工单内容
+        Skip to content
       </a>
       <aside className="navigation">
         <Link
@@ -400,7 +410,7 @@ export default function TicketDesk({
           }}
           aria-disabled={locked}
           className="wordmark"
-          aria-label="Model Lab 首页"
+          aria-label="Model Lab home"
         >
           <span className="brand-symbol">
             <i />
@@ -413,33 +423,34 @@ export default function TicketDesk({
         <div className="workspace-chip">
           <span className="workspace-icon">M</span>
           <div>
-            <strong>客服工作空间</strong>
+            <strong>Support</strong>
             <small>SUPPORT WORKSPACE</small>
           </div>
           <span className="workspace-dot" />
         </div>
-        <div className="nav-caption">工作台</div>
-        <nav aria-label="工单队列">
+        <div className="nav-caption">Workspace</div>
+        <nav aria-label="Queues">
           {(
             [
               {
                 key: "all",
-                label: "收件箱",
+                label: "Inbox",
                 icon: "inbox",
-                count: tickets.length,
+                count: tickets.length - doneCount,
               },
               {
                 key: "review",
-                label: "需要关注",
+                label: "Flag",
                 icon: "flag",
                 count: reviewCount,
               },
               {
                 key: "assigned",
-                label: "已分配",
+                label: "Assigned",
                 icon: "check",
                 count: assignedCount,
               },
+              { key: "done", label: "Done", icon: "check", count: doneCount },
             ] as const
           ).map((item) => (
             <button
@@ -457,22 +468,22 @@ export default function TicketDesk({
         </nav>
         <div className="nav-divider" />
         <button
-          aria-label="分类规则"
+          aria-label="Rules"
           className="nav-tool"
           onClick={() => void openRules()}
         >
           <Icon name="settings" size={19} />
-          <span>分类规则</span>
+          <span>Rules</span>
           <Icon name="chevron" size={13} />
         </button>
         <div className="nav-bottom">
           <div className="local-model-note">
             <Icon name="chip" size={23} />
-            <strong>让模型成为你的助手</strong>
+            <strong>A little help, a clear decision.</strong>
             <p>
-              理解工单，提供建议。
+              Triage with confidence.
               <br />
-              由你确认最终分配。
+              You make the final call.
             </p>
           </div>
           <button
@@ -484,13 +495,13 @@ export default function TicketDesk({
             }}
           >
             <Icon name="refresh" size={14} />
-            恢复演示工单
+            Reset demo
           </button>
           <div className="workspace-footer">
             <span className="profile-avatar">ML</span>
             <div>
               <strong>Model Lab</strong>
-              <small>工单分析实验室</small>
+              <small>Ticket workspace</small>
             </div>
             <span className="workspace-dot" />
           </div>
@@ -501,7 +512,7 @@ export default function TicketDesk({
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              工作台 <Icon name="chevron" size={10} /> 工单管理
+              Workspace <Icon name="chevron" size={10} /> Tickets
             </div>
             <div className="page-title-line">
               <h1>{viewName}</h1>
@@ -510,11 +521,11 @@ export default function TicketDesk({
                   ? reviewCount
                   : view === "assigned"
                     ? assignedCount
-                    : tickets.length}
+                    : view === "done" ? doneCount : tickets.length - doneCount}
               </span>
             </div>
             <p className="page-description">
-              合成演示工单 · Laya 本地分析，Jev 使用你自己的 API Key。
+              Less sorting. More supporting.
             </p>
           </div>
           <div className="header-actions">
@@ -525,12 +536,16 @@ export default function TicketDesk({
               <i className={`status-dot ${modelHealth(provider).status}`} />
               {modelHealth(provider).status === "ready"
                 ? provider === "jev"
-                  ? "Jev API 已配置"
-                  : `${names[provider]} 已就绪`
+                  ? "Jev connected"
+                  : `${names[provider]} ready`
                 : modelHealth(provider).status === "loading"
-                  ? "模型连接中"
-                  : "模型未就绪"}
+                  ? "Connecting"
+                  : "Not connected"}
             </span>
+            <button className="button secondary import-trigger" disabled={locked}
+              onClick={() => { setError(""); setModal("import"); }}>
+              <Icon name="upload" size={17} /> Import
+            </button>
             <button
               className="button primary"
               disabled={locked}
@@ -540,12 +555,12 @@ export default function TicketDesk({
               }}
             >
               <Icon name="plus" size={18} />
-              新建工单
+              New ticket
             </button>
           </div>
         </header>
         <div className="workspace-toolbar">
-          <div className="provider-switch" aria-label="选择分析模型">
+          <div className="provider-switch" aria-label="Analysis model">
             {(
               [
                 "laya-ft",
@@ -565,7 +580,7 @@ export default function TicketDesk({
                 <ModelMark provider={p} />
                 <strong>{names[p]}</strong>
                 <small>
-                  {p === "jev" ? "API" : "本地 V5"}
+                  {p === "jev" ? "API" : "Local · V5"}
                 </small>
               </Link>
             ))}
@@ -573,8 +588,8 @@ export default function TicketDesk({
           <div className="queue-summary">
             <button
               className="icon-button"
-              title="导出工单备份"
-              aria-label="导出工单备份"
+              title="Export"
+              aria-label="Export"
               disabled={locked}
               onClick={() => void exportTickets()}
             >
@@ -582,16 +597,16 @@ export default function TicketDesk({
             </button>
             <span>
               <i className="queue-dot pending" />
-              {pending.length} 待分析
+              {pending.length} Pending
             </span>
             <span>
               <i className="queue-dot analyzed" />
-              {tickets.filter((t) => t.analysis && !isStale(t)).length} 已分析
+              {tickets.filter((t) => t.analysis && !isStale(t)).length} Analyzed
             </span>
             <button
               className="icon-button"
-              title="刷新工单"
-              aria-label="刷新工单"
+              title="Refresh"
+              aria-label="Refresh"
               disabled={locked}
               onClick={() => void refresh()}
             >
@@ -608,11 +623,11 @@ export default function TicketDesk({
             <Icon name="warning" size={17} />
             <span>{error}</span>
             <button onClick={() => void refresh()} disabled={locked}>
-              重试
+              Retry
             </button>
             <button
               className="icon-button"
-              aria-label="关闭错误提示"
+              aria-label="Dismiss"
               onClick={() => setError("")}
             >
               <Icon name="close" size={15} />
@@ -620,30 +635,30 @@ export default function TicketDesk({
           </div>
         )}
         <div className={`mailbox ${mobileDetail ? "mobile-detail" : ""}`}>
-          <section className="inbox" aria-label="工单列表">
+          <section className="inbox" aria-label="Tickets">
             <div className="list-controls">
               <div className="search">
                 <Icon name="search" size={17} />
                 <input
                   ref={searchRef}
-                  aria-label="搜索工单"
-                  placeholder="搜索工单…"
+                  aria-label="Search tickets"
+                  placeholder="Search tickets…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
                 {search ? (
-                  <button aria-label="清除搜索" onClick={() => setSearch("")}>
+                  <button aria-label="Clear search" onClick={() => setSearch("")}>
                     <Icon name="close" size={14} />
                   </button>
                 ) : (
                   <kbd>Ctrl K</kbd>
                 )}
               </div>
-              <div className="filters" aria-label="工单状态筛选">
+              <div className="filters" aria-label="Status">
                 {[
-                  { key: "all", label: "全部" },
-                  { key: "pending", label: "待分析" },
-                  { key: "analyzed", label: "已分析" },
+                  { key: "all", label: "All" },
+                  { key: "pending", label: "Pending" },
+                  { key: "analyzed", label: "Analyzed" },
                 ].map((f) => (
                   <button
                     key={f.key}
@@ -659,7 +674,7 @@ export default function TicketDesk({
             </div>
             <div className="ticket-list" aria-busy={loading}>
               {loading ? (
-                <div className="list-loading" aria-label="正在加载工单">
+                <div className="list-loading" aria-label="Loading tickets">
                   {[1, 2, 3, 4].map((n) => (
                     <div className="skeleton-ticket" key={n}>
                       <i />
@@ -678,10 +693,10 @@ export default function TicketDesk({
                   >
                     <div className="ticket-row-top">
                       <span className={`avatar avatar-${i % 4}`}>
-                        {t.customer?.slice(0, 1) || "客"}
+                        {t.customer?.slice(0, 1) || "C"}
                       </span>
                       <span className="ticket-sender">
-                        {t.customer || "客户"}
+                        {t.customer || "Customer"}
                       </span>
                       <time>{t.time}</time>
                     </div>
@@ -690,18 +705,18 @@ export default function TicketDesk({
                     <div className="ticket-row-bottom">
                       <span className="ticket-number">{t.id}</span>
                       <span
-                        className={`ticket-status ${t.status === "assigned" ? "assigned" : t.analysis?.needs_review ? "review" : t.analysis && !isStale(t) ? "analyzed" : "pending"}`}
+                        className={`ticket-status ${t.status === "done" ? "done" : t.status === "assigned" ? "assigned" : t.analysis?.needs_review ? "review" : t.analysis && !isStale(t) ? "analyzed" : "pending"}`}
                       >
                         <i />
-                        {t.status === "assigned"
-                          ? "已分配"
+                        {t.status === "done" ? "Done" : t.status === "assigned"
+                          ? "Assigned"
                           : isStale(t)
-                            ? "待更新"
+                            ? "Outdated"
                             : t.analysis?.needs_review
-                              ? "需复核"
+                              ? "Flag"
                               : t.analysis
-                                ? "已分析"
-                                : "待分析"}
+                                ? "Analyzed"
+                                : "Pending"}
                       </span>
                     </div>
                   </button>
@@ -710,19 +725,19 @@ export default function TicketDesk({
                 <div className="empty-list">
                   <Icon name="search" size={30} />
                   <strong>
-                    {search ? "没有匹配的工单" : "当前队列暂无工单"}
+                    {search ? "No matches" : "All clear"}
                   </strong>
                   <p>
                     {search
-                      ? "试试客户姓名、关键词或工单编号"
-                      : "新建工单，开始一次分析"}
+                      ? "Try a name, keyword or ticket ID."
+                      : "Create or import a ticket to get started."}
                   </p>
                   {search && (
                     <button
                       className="text-button"
                       onClick={() => setSearch("")}
                     >
-                      清除搜索
+                      Clear search
                     </button>
                   )}
                 </div>
@@ -732,7 +747,7 @@ export default function TicketDesk({
               {batch ? (
                 <>
                   <div className="batch-progress">
-                    <span>正在逐条分析</span>
+                    <span>Analyzing</span>
                     <b>
                       {progress.done} / {progress.total}
                     </b>
@@ -741,11 +756,11 @@ export default function TicketDesk({
                     className="batch-button"
                     onClick={() => {
                       stop.current = true;
-                      setNotice("将在当前工单完成后停止");
+                      setNotice("Stopping after this ticket");
                     }}
                   >
                     <Icon name="stop" size={16} />
-                    完成当前后停止
+                    Stop
                   </button>
                 </>
               ) : (
@@ -760,13 +775,13 @@ export default function TicketDesk({
                     onClick={() => void analyzeAll()}
                   >
                     <Icon name="sparkles" size={17} />
-                    分析待处理工单
+                    Analyze all
                     <span className="batch-count">{pending.length}</span>
                   </button>
                   <small>
                     {provider === "jev"
-                      ? "批量分析将调用 API，产生费用"
-                      : "本地推理 · 无需 API 调用"}
+                      ? "Uses your Jev API · Billed per call"
+                      : "Runs locally · No API fees"}
                   </small>
                 </>
               )}
@@ -776,20 +791,20 @@ export default function TicketDesk({
           <section
             ref={detailRef}
             className="ticket-workspace"
-            aria-label="工单详情"
+            aria-label="Ticket"
           >
             <div className="document-toolbar">
               <button
                 className="icon-button mobile-back"
-                aria-label="返回工单列表"
+                aria-label="Back to inbox"
                 onClick={() => setMobileDetail(false)}
               >
                 <Icon name="back" size={18} />
               </button>
               <div className="detail-tabs">
                 {[
-                  { key: "ticket", icon: "document", label: "工单详情" },
-                  { key: "compare", icon: "compare", label: "模型对照" },
+                  { key: "ticket", icon: "document", label: "Ticket" },
+                  { key: "compare", icon: "compare", label: "Compare" },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -805,13 +820,18 @@ export default function TicketDesk({
                   </button>
                 ))}
               </div>
+              {ticket && <button className="button secondary resolve-action" disabled={locked}
+                onClick={() => void (ticket.status === "done" ? reopen() : resolve())}>
+                <Icon name={ticket.status === "done" ? "refresh" : "check"} size={14} />
+                {ticket.status === "done" ? "Reopen" : "Done"}
+              </button>}
               <div className="ticket-pagination">
                 <span>
                   {index + 1} / {filtered.length}
                 </span>
                 <button
                   className="icon-button"
-                  aria-label="上一条工单"
+                  aria-label="Previous ticket"
                   disabled={index <= 0}
                   onClick={() => chooseTicket(filtered[index - 1].id)}
                 >
@@ -819,7 +839,7 @@ export default function TicketDesk({
                 </button>
                 <button
                   className="icon-button"
-                  aria-label="下一条工单"
+                  aria-label="Next ticket"
                   disabled={index < 0 || index >= filtered.length - 1}
                   onClick={() => chooseTicket(filtered[index + 1].id)}
                 >
@@ -832,11 +852,11 @@ export default function TicketDesk({
                 <span className="empty-art">
                   <Icon name="inbox" size={35} />
                 </span>
-                <h2>{loading ? "正在载入工作空间" : "让每一条反馈找到归属"}</h2>
+                <h2>{loading ? "Loading inbox" : "A place for every request."}</h2>
                 <p>
                   {loading
-                    ? "正在获取工单与模型状态…"
-                    : "选择或新建一张工单，查看内容与模型建议。"}
+                    ? "Getting your workspace ready…"
+                    : "Select a ticket to get started."}
                 </p>
                 {!loading && (
                   <button
@@ -845,7 +865,7 @@ export default function TicketDesk({
                     onClick={() => setModal("new")}
                   >
                     <Icon name="plus" size={17} />
-                    新建工单
+                    New ticket
                   </button>
                 )}
               </div>
@@ -865,25 +885,25 @@ export default function TicketDesk({
                     <span>{ticket.id}</span>
                     <span>
                       <Icon name="mail" size={13} />
-                      {ticket.channel || "客户反馈"}
+                      {ticket.channel || "Message"}
                     </span>
                     <span className={`ticket-status ${ticket.status}`}>
-                      {ticket.status === "assigned" ? "已分配" : "处理中"}
+                      {ticket.status === "done" ? "Done" : ticket.status === "assigned" ? "Assigned" : "Open"}
                     </span>
                   </div>
                   <h2 className="subject">{ticket.subject}</h2>
                   <div className="customer">
                     <span className="avatar large">
-                      {ticket.customer?.slice(0, 1) || "客"}
+                      {ticket.customer?.slice(0, 1) || "C"}
                     </span>
                     <div>
-                      <strong>{ticket.customer || "客户"}</strong>
-                      <span>{ticket.company || "客户工单"}</span>
+                      <strong>{ticket.customer || "Customer"}</strong>
+                      <span>{ticket.company || "Customer"}</span>
                     </div>
                     <time>{ticket.time}</time>
                   </div>
                   <div className="message-heading">
-                    <span>客户来信</span>
+                    <span>Message</span>
                     <span className="message-line" />
                   </div>
                   <div className="customer-message">
@@ -903,14 +923,14 @@ export default function TicketDesk({
                       }
                     >
                       {expandedMessage === ticket.id
-                        ? "收起来信"
-                        : "展开完整来信"}
+                        ? "Show less"
+                        : "Read more"}
                       <Icon name="chevron" size={14} />
                     </button>
                   )}
                   <div className="reading-note">
                     <Icon name="document" size={15} />
-                    <span>原始工单内容 · 模型基于标题与正文分析</span>
+                    <span>Analysis uses the subject and message.</span>
                   </div>
                   <details
                     key={`history-${ticket.id}`}
@@ -918,7 +938,7 @@ export default function TicketDesk({
                   >
                     <summary className="section-heading">
                       <span>
-                        处理动态 <small>{ticket.history.length} 条记录</small>
+                        Activity <small>{ticket.history.length} events</small>
                       </span>
                       <Icon name="chevron" size={15} />
                     </summary>
@@ -937,7 +957,7 @@ export default function TicketDesk({
                         <li>
                           <i className="history-dot" />
                           <div>
-                            <span>等待开始分析</span>
+                            <span>Pending</span>
                             <time>{ticket.time}</time>
                           </div>
                         </li>
@@ -949,7 +969,7 @@ export default function TicketDesk({
                   <div className="analysis-heading">
                     <h3>
                       <Icon name="sparkles" size={17} />
-                      智能分析
+                      Insights
                     </h3>
                     <span className="model-badge">
                       <i />
@@ -959,7 +979,7 @@ export default function TicketDesk({
                   {busy?.id === ticket.id && (
                     <div className="processing-note" role="status">
                       <Icon name="refresh" size={16} className="spin" />
-                      {names[busy.provider]} 正在理解工单…
+                      {names[busy.provider]} is analyzing…
                     </div>
                   )}
                   {analysis ? (
@@ -967,11 +987,11 @@ export default function TicketDesk({
                       <section className="suggestion">
                         <div className="eyebrow">
                           {ticket.status === "assigned"
-                            ? "已确认分配"
-                            : "建议负责团队"}
+                            ? "Assigned to"
+                            : "Suggested team"}
                         </div>
                         <div className="suggestion-heading">
-                          <h2>{ticket.team || analysis.suggested_team}</h2>
+                          <h2>{teamLabel(ticket.team || analysis.suggested_team)}</h2>
                           <span className="completion-icon">
                             <Icon
                               name={
@@ -984,19 +1004,19 @@ export default function TicketDesk({
                         <p className="suggestion-context">
                           {labels[analysis.category] || analysis.category_label}
                         </p>
-                        <div className="decision-summary" aria-label="关键判断">
+                        <div className="decision-summary" aria-label="Key signals">
                           <span
                             className={`decision-priority ${analysis.priority}`}
                           >
                             {analysis.priority} ·{" "}
                             {priorities[analysis.priority]}
                           </span>
-                          {analysis.complaint >= 0.5 && <span>投诉倾向</span>}
-                          {analysis.churn >= 0.5 && <span>流失风险</span>}
-                          {analysis.refund >= 0.5 && <span>退款诉求</span>}
+                          {analysis.complaint >= 0.5 && <span>Complaint</span>}
+                          {analysis.churn >= 0.5 && <span>Churn risk</span>}
+                          {analysis.refund >= 0.5 && <span>Refund</span>}
                         </div>
                         <div className="confidence-row">
-                          <span>分类置信度</span>
+                          <span>Confidence</span>
                           <strong>{pct(analysis.confidence)}</strong>
                         </div>
                         <div className="confidence-track">
@@ -1004,23 +1024,23 @@ export default function TicketDesk({
                         </div>
                         {stale && (
                           <p className="confidence-note">
-                            模型或规则已更新，请重新分析。
+                            Outdated result. Analyze again.
                           </p>
                         )}
                         {!stale && analysis.confidence < 0.65 && (
                           <p className="confidence-note">
-                            置信度较低，请人工选择团队。
+                            Low confidence. Choose a team.
                           </p>
                         )}
                         {!stale && analysis.churn >= 0.5 && (
                           <p className="confidence-note">
-                            存在流失风险，建议优先跟进客户。
+                            At risk of leaving. Follow up soon.
                           </p>
                         )}
-                        {ticket.status !== "assigned" && (
+                        {!["assigned", "done"].includes(ticket.status) && (
                           <div className="assignment">
                             <label className="sr-only" htmlFor="team-choice">
-                              分配团队
+                              Team
                             </label>
                             <select
                               id="team-choice"
@@ -1035,11 +1055,11 @@ export default function TicketDesk({
                             >
                               <option value="">
                                 {analysis.confidence < 0.65
-                                  ? "请选择负责团队"
-                                  : `建议：${analysis.suggested_team}`}
+                                  ? "Choose a team"
+                                  : `Suggested: ${teamLabel(analysis.suggested_team)}`}
                               </option>
                               {teams.map((team) => (
-                                <option key={team}>{team}</option>
+                                <option key={team} value={team}>{teamLabel(team)}</option>
                               ))}
                             </select>
                             <button
@@ -1052,18 +1072,18 @@ export default function TicketDesk({
                               onClick={() => void assign()}
                             >
                               <Icon name="check" size={17} />
-                              {saving ? "正在分配…" : "确认分配"}
+                              {saving ? "Assigning…" : "Assign"}
                             </button>
                           </div>
                         )}
-                        {ticket.status === "assigned" && (
+                        {["assigned", "done"].includes(ticket.status) && (
                           <button
                             className="button secondary full-width reopen-button"
                             disabled={locked}
                             onClick={() => void reopen()}
                           >
                             <Icon name="refresh" size={14} />
-                            重新打开工单
+                            Reopen
                           </button>
                         )}
                       </section>
@@ -1073,8 +1093,8 @@ export default function TicketDesk({
                       >
                         <summary>
                           <div>
-                            <strong>查看详细判断</strong>
-                            <small>五项判断分数、分类分布与模型信息</small>
+                            <strong>Details</strong>
+                            <small>Scores and model details</small>
                           </div>
                           <Icon name="chevron" size={16} />
                         </summary>
@@ -1085,7 +1105,7 @@ export default function TicketDesk({
                             <Icon name="flag" size={19} />
                           </span>
                           <div>
-                            <small>紧急程度</small>
+                            <small>Priority</small>
                             <strong>
                               {priorities[analysis.priority] ||
                                 analysis.priority}
@@ -1095,16 +1115,16 @@ export default function TicketDesk({
                         </section>
                         <section className="signals">
                           <div className="section-heading">
-                            <h3>客户意图</h3>
-                            <span>模型分数</span>
+                            <h3>Signals</h3>
+                            <span>Scores</span>
                           </div>
-                          <Signal label="投诉倾向" value={analysis.complaint} />
-                          <Signal label="流失风险" value={analysis.churn} />
-                          <Signal label="退款诉求" value={analysis.refund} />
+                          <Signal label="Complaint" value={analysis.complaint} />
+                          <Signal label="Churn risk" value={analysis.churn} />
+                          <Signal label="Refund" value={analysis.refund} />
                         </section>
                         <details className="disclosure">
                           <summary>
-                            分类分布与模型信息
+                            Category scores
                             <Icon name="chevron" size={13} />
                           </summary>
                           <div className="disclosure-body">
@@ -1122,15 +1142,15 @@ export default function TicketDesk({
                                 </div>
                               ))}
                             <p className="technical-note">
-                              模型：{analysis.model}
+                              Model: {analysis.model}
                               <br />
-                              用时：{(analysis.elapsed_ms / 1000).toFixed(1)} s
-                              · 输入 {analysis.input_tokens} tokens
+                              Time: {(analysis.elapsed_ms / 1000).toFixed(1)} s
+                              · {analysis.input_tokens} tokens
                             </p>
                           </div>
                         </details>
                       </details>
-                      {ticket.status !== "assigned" && (
+                      {!["assigned", "done"].includes(ticket.status) && (
                         <button
                           className="reanalyze"
                           disabled={
@@ -1139,7 +1159,7 @@ export default function TicketDesk({
                           onClick={() => void analyze(ticket.id)}
                         >
                           <Icon name="refresh" size={14} />
-                          重新分析
+                          Analyze again
                         </button>
                       )}
                     </>
@@ -1148,28 +1168,28 @@ export default function TicketDesk({
                       <div className="analysis-empty-art">
                         <Icon name="sparkles" size={32} />
                       </div>
-                      <h3>从理解这张工单开始</h3>
+                      <h3>Ready when you are.</h3>
                       <p>
-                        识别负责团队、紧急程度
+                        Find the right team
                         <br />
-                        以及投诉、流失和退款诉求。
+                        and spot what needs attention.
                       </p>
                       <button
                         className="button primary full-width"
                         disabled={
-                          locked || modelHealth(provider).status !== "ready"
+                          locked || ticket.status === "done" || modelHealth(provider).status !== "ready"
                         }
                         onClick={() => void analyze(ticket.id)}
                       >
                         <Icon name="sparkles" size={17} />
                         {busy?.id === ticket.id
-                          ? "分析中…"
-                          : `使用 ${names[provider]} 分析`}
+                          ? "Analyzing…"
+                          : `Analyze`}
                       </button>
                       <small>
                         {provider === "jev"
-                          ? "发送工单内容至 API · 按调用计费"
-                          : "本地运行 · 无 API 调用费用"}
+                          ? "Sends this ticket to Jev · API fees apply"
+                          : "Private, local inference · No API fees"}
                       </small>
                     </section>
                   )}
@@ -1181,16 +1201,16 @@ export default function TicketDesk({
                       <Icon name="compare" size={20} />
                     </span>
                     <span>
-                      <strong>看看另一个模型怎么判断</strong>
-                      <small>Laya × Jev · 五项结果对照</small>
+                      <strong>Compare models</strong>
+                      <small>Laya & Jev, side by side</small>
                     </span>
                     <Icon name="chevron" size={14} />
                   </button>
                   <p className="analysis-footer">
                     <Icon name="user" size={13} />
-                    模型提供建议，最终由你确认。
+                    Suggestions, with you in control.
                     <br />
-                    分数表示模型判断，不等于准确率。
+                    Confidence is not accuracy.
                   </p>
                 </aside>
               </div>
@@ -1207,7 +1227,7 @@ export default function TicketDesk({
       <dialog
         aria-labelledby="dialog-title"
         ref={dialogRef}
-        className={`dialog ${modal === "rules" ? "rules-dialog" : ""}`}
+        className={`dialog ${modal === "rules" ? "rules-dialog" : ""} ${modal === "import" ? "import-dialog" : ""}`}
         onCancel={(e) => {
           if (saving) e.preventDefault();
           else setModal(null);
@@ -1222,21 +1242,31 @@ export default function TicketDesk({
               <span className="eyebrow">MODEL LAB</span>
               <h2 id="dialog-title">
                 {modal === "new"
-                  ? "创建一张新工单"
+                  ? "New ticket"
+                  : modal === "import" ? "Import tickets"
                   : modal === "rules"
-                    ? "透明、一致的判断规则"
-                    : "恢复演示工单？"}
+                    ? "Rules"
+                    : "Reset demo?"}
               </h2>
             </div>
             <button
               className="icon-button"
-              aria-label="关闭弹窗"
+              aria-label="Close dialog"
               disabled={saving}
               onClick={() => setModal(null)}
             >
               <Icon name="close" />
             </button>
           </header>
+          {modal === "import" && <ImportTickets provider={provider} onBusy={setSaving} onCancel={() => setModal(null)}
+            onImported={(result) => {
+              setTickets(result.tickets);
+              changeView("all");
+              setSelected(result.tickets[0]?.id || "");
+              setDetailTab("ticket");
+              setModal(null);
+              setNotice(`${result.imported} tickets imported${result.skipped ? ` · ${result.skipped} duplicates skipped` : ""}`);
+            }} />}
           {modal === "new" && (
             <form
               onSubmit={(e) => {
@@ -1245,36 +1275,37 @@ export default function TicketDesk({
               }}
             >
               <p className="dialog-description">
-                粘贴客户的原始反馈，交给模型分析。
+                Add a request to your inbox.
               </p>
+              <Link className="form-preview-link" href="/submit" target="_blank" rel="noopener noreferrer">Open request form <Icon name="arrow" size={13} /></Link>
               <label htmlFor="ticket-subject">
-                工单标题 <span>必填</span>
+                Subject <span>Required</span>
               </label>
               <input
                 id="ticket-subject"
                 ref={titleRef}
                 required
                 maxLength={120}
-                placeholder="例如：订阅被重复扣款，需要退款"
+                placeholder="e.g. Duplicate subscription charge"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 disabled={saving}
               />
               <label htmlFor="ticket-message">
-                客户反馈 <span>必填</span>
+                Message <span>Required</span>
               </label>
               <textarea
                 id="ticket-message"
                 required
                 maxLength={3000}
                 rows={7}
-                placeholder="输入完整的客户来信，保留问题与诉求…"
+                placeholder="What does the customer need?"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 disabled={saving}
               />
               <div className="field-hint">
-                <span>支持中文、英文及其他语言输入</span>
+                <span>Any language</span>
                 <span>{message.length} / 3000</span>
               </div>
               {error && (
@@ -1289,14 +1320,14 @@ export default function TicketDesk({
                   disabled={saving}
                   onClick={() => setModal(null)}
                 >
-                  取消
+                  Cancel
                 </button>
                 <button
                   className="button primary"
                   disabled={saving || !subject.trim() || !message.trim()}
                 >
                   <Icon name="plus" size={17} />
-                  {saving ? "创建中…" : "创建工单"}
+                  {saving ? "Creating…" : "Create ticket"}
                 </button>
               </div>
             </form>
@@ -1304,38 +1335,32 @@ export default function TicketDesk({
           {modal === "rules" && (
             <div className="rules-content">
               <p className="dialog-description">
-                两个模型使用相同的五项判断任务。分类置信度低于 65%
-                时，需要人工确认团队。
+                Both models use the same five signals. Choose a team manually when confidence is below 65%.
               </p>
               <div className="team-responsibilities">
                 {[
-                  "退款、重复扣费、发票与支付争议",
-                  "功能故障、服务中断、导出与集成问题",
-                  "价格、购买、试用、演示与套餐咨询",
-                  "登录、密码、账号找回与换绑",
-                  "功能建议、一般反馈及其他请求",
+                  "Refunds, invoices and payments",
+                  "Bugs, outages and integrations",
+                  "Pricing, plans and demos",
+                  "Login, passwords and recovery",
+                  "Feedback and general requests",
                 ].map((text, i) => (
                   <div key={text}>
                     <span className="team-index">0{i + 1}</span>
-                    <strong>{teams[i]}</strong>
+                    <strong>{teamLabel(teams[i])}</strong>
                     <p>{text}</p>
                   </div>
                 ))}
               </div>
               <p className="dialog-description">
-                投诉、流失、退款分数达到 50% 时判定为“有”；紧急度分数 ≥ 1.7 为
-                P1，≥ 0.9 为 P2，其余为 P3。分配仅记录在此工作空间。
+                Signals are positive at 50%. Priority: P1 ≥ 1.7, P2 ≥ 0.9, otherwise P3. Assignments stay in this workspace.
               </p>
-              <details className="prompt-source">
-                <summary>查看当前模型判断问题</summary>
-                <pre>{promptText}</pre>
-              </details>
             </div>
           )}
           {modal === "reset" && (
             <>
               <p className="dialog-description">
-                这会清除新建工单，以及所有模型的分析和分配记录，并恢复初始演示数据。恢复前会自动保留最近一次数据库备份。
+                Replace all tickets and results with the demo. A local backup is saved first.
               </p>
               {error && (
                 <p className="form-error" role="alert">
@@ -1348,14 +1373,14 @@ export default function TicketDesk({
                   disabled={saving}
                   onClick={() => setModal(null)}
                 >
-                  保留当前工单
+                  Cancel
                 </button>
                 <button
                   className="button danger"
                   disabled={saving}
                   onClick={() => void reset()}
                 >
-                  {saving ? "正在恢复…" : "确认恢复演示数据"}
+                  {saving ? "Resetting…" : "Reset demo"}
                 </button>
               </div>
             </>

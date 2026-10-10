@@ -3,6 +3,7 @@ import ModelMark from "./ModelMark";
 import {
   names,
   priorities,
+  teamLabel,
   type Ticket,
   type Provider,
   type Analysis,
@@ -36,14 +37,14 @@ export default function ModelComparison({
     !isStale(t, "jev") &&
     left.input_id === right.input_id;
   const rows: { label: string; value: (a: Analysis) => string }[] = [
-    { label: "负责团队", value: (a) => a.suggested_team },
+    { label: "Team", value: (a) => teamLabel(a.suggested_team) },
     {
-      label: "紧急程度",
+      label: "Priority",
       value: (a) => `${a.priority} · ${priorities[a.priority] || a.priority}`,
     },
-    { label: "投诉倾向", value: (a) => (a.complaint >= 0.5 ? "有" : "无") },
-    { label: "流失风险", value: (a) => (a.churn >= 0.5 ? "有" : "无") },
-    { label: "退款诉求", value: (a) => (a.refund >= 0.5 ? "有" : "无") },
+    { label: "Complaint", value: (a) => (a.complaint >= 0.5 ? "Yes" : "No") },
+    { label: "Churn risk", value: (a) => (a.churn >= 0.5 ? "Yes" : "No") },
+    { label: "Refund", value: (a) => (a.refund >= 0.5 ? "Yes" : "No") },
   ];
   const differences = comparable
     ? rows.filter((row) => row.value(left) !== row.value(right)).length
@@ -52,8 +53,8 @@ export default function ModelComparison({
     <div className="comparison-page workspace-scroll">
       <div className="comparison-heading">
         <span className="eyebrow">SIDE BY SIDE</span>
-        <h2>同一张工单，两种判断。</h2>
-        <p>并排查看本地微调模型与 API 模型的五项结果。</p>
+        <h2>Two models. One ticket.</h2>
+        <p>Compare the five signals side by side.</p>
       </div>
       <div className="comparison-context">
         <Icon name="document" />
@@ -76,7 +77,7 @@ export default function ModelComparison({
                 <ModelMark provider={p} />
                 <div>
                   <h3>{names[p]}</h3>
-                  <p>{p === "jev" ? "云端 API" : "本地微调 · V5"}</p>
+                  <p>{p === "jev" ? "Cloud API" : "Local · V5"}</p>
                 </div>
                 <span
                   className={`status-dot ${modelHealth(p).status}`}
@@ -86,12 +87,12 @@ export default function ModelComparison({
               <div className="model-card-state">
                 <span>
                   {processing
-                    ? "正在分析…"
+                    ? "Analyzing…"
                     : a
                       ? old
-                        ? "结果待更新"
-                        : "分析已完成"
-                      : "尚未分析"}
+                        ? "Outdated"
+                        : "Done"
+                      : "Pending"}
                 </span>
                 <small>
                   {a ? `${(a.elapsed_ms / 1000).toFixed(1)} s` : "—"}
@@ -102,7 +103,7 @@ export default function ModelComparison({
                 disabled={
                   locked ||
                   modelHealth(p).status !== "ready" ||
-                  t.runs[p].status === "assigned"
+                  ["assigned", "done"].includes(t.runs[p].status)
                 }
                 onClick={() => void analyze(t.id, p)}
               >
@@ -111,13 +112,13 @@ export default function ModelComparison({
                   size={16}
                   className={processing ? "spin" : ""}
                 />
-                {t.runs[p].status === "assigned"
-                  ? "已分配 · 结果已保留"
+                {t.runs[p].status === "done" ? "Done" : t.runs[p].status === "assigned"
+                  ? "Assigned"
                   : processing
-                    ? "分析中"
+                    ? "Analyzing"
                     : a
-                      ? "重新分析"
-                      : `使用 ${names[p]} 分析`}
+                      ? "Analyze again"
+                      : `Analyze`}
               </button>
             </section>
           );
@@ -132,17 +133,17 @@ export default function ModelComparison({
         />
         {comparable
           ? differences
-            ? `有 ${differences} 项判断不同，建议人工核对。`
-            : "五项判断一致，仍需结合工单内容确认。"
-          : "完成两侧的当前版本分析后，即可查看判断差异。"}
+            ? `${differences} differences. Review before assigning.`
+            : "All five signals agree. Review before assigning."
+          : "Analyze with both models to compare."}
       </div>
       <div className="comparison-table-wrap">
         <table className="comparison-table">
           <thead>
             <tr>
-              <th>判断维度</th>
+              <th>Signal</th>
               <th>
-                Laya <small>本地</small>
+                Laya <small>Local</small>
               </th>
               <th>
                 Jev <small>API</small>
@@ -162,9 +163,9 @@ export default function ModelComparison({
                 <th scope="row">{row.label}</th>
                 {[left, right].map((a, i) => (
                   <td key={i}>
-                    {a ? row.value(a) : <span className="muted">待分析</span>}
+                    {a ? row.value(a) : <span className="muted">Pending</span>}
                     {a && isStale(t, i === 0 ? "laya-ft" : "jev") && (
-                      <small className="old-result">旧结果</small>
+                      <small className="old-result">Outdated</small>
                     )}
                   </td>
                 ))}
@@ -175,8 +176,7 @@ export default function ModelComparison({
       </div>
       <p className="panel-footnote">
         <Icon name="cloud" size={15} />
-        点击 Jev 分析会发送本工单标题与正文，并产生 API
-        调用费用。结果一致不代表一定正确。
+        Jev sends this ticket to its API. Fees apply. Matching results still need review.
       </p>
     </div>
   );

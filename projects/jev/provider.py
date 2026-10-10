@@ -19,13 +19,13 @@ def config():
 def status():
     values = config()
     return {"status": "ready" if values["TYPESAFE_API_KEY"] else "unconfigured",
-            "message": "API 已配置，调用时验证" if values["TYPESAFE_API_KEY"] else "请填写本地 API Key",
+            "message": "API configured; verified on use" if values["TYPESAFE_API_KEY"] else "Add your Jev API key",
             "model": values["JEV_MODEL"] or DEFAULT_MODEL, "offline": False}
 
 
 def predict(state, questions):
     values = config()
     if not values["TYPESAFE_API_KEY"]:
-        raise ProviderError("请先在 .env.local 填写 TYPESAFE_API_KEY。", 503)
+        raise ProviderError("Configure TYPESAFE_API_KEY in .env.local first.", 503)
     return request_jev(state, questions, api_key=values["TYPESAFE_API_KEY"],
                        model=values["JEV_MODEL"] or DEFAULT_MODEL)

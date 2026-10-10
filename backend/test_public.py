@@ -35,8 +35,8 @@ class Isolation(unittest.TestCase):
         self.assertEqual(set(server.PROVIDERS), {"laya-ft", "jev"})
         for ticket in server.seed_tickets():
             self.assertEqual(set(ticket["runs"]), {"laya-ft", "jev"})
-            self.assertTrue(ticket["customer"].startswith("演示用户"))
-            self.assertTrue(ticket["company"].startswith("示例团队"))
+            self.assertTrue(ticket["customer"].startswith("Demo user"))
+            self.assertTrue(ticket["company"].startswith("Example team"))
             self.assertIsNone(ticket["reference"])
         self.assertEqual(ft.MODEL, ROOT / "models/ticket-finetuned-v5")
 
@@ -47,6 +47,8 @@ class Isolation(unittest.TestCase):
         self.assertNotIn(fake.decode(), str(errors))
         self.assertIn((".env.local", "not-allowlisted"), scanner.inspect(".env.local", b"", {".env.example"}))
         self.assertTrue(scanner.inspect(".env.example", b"TYPESAFE_API_KEY=example", {".env.example"}))
+        for key in ("ZENDESK_OAUTH_TOKEN", "ZENDESK_API_TOKEN", "TICKET_API_TOKEN", "MAIL_IMAP_PASSWORD", "ZENDESK_EMAIL", "MAIL_IMAP_USER"):
+            self.assertTrue(scanner.inspect(".env.example", (key + "=example").encode(), {".env.example"}))
 
     def test_allowlist_cannot_authorize_runtime_state(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(scanner, "ROOT", Path(tmp)):

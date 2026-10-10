@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./inbox.css";
 export const metadata: Metadata = {
-  title: "Model Lab · 工单对照",
-  description: "同一张工单，对照 Laya 与 Jev 的分类结果。",
+  title: "Model Lab · Inbox",
+  description: "A focused inbox for smarter ticket triage.",
   robots: { index: false, follow: false },
   icons: { icon: "/favicon.svg" },
 };
@@ -10,7 +11,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

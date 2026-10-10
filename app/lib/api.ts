@@ -18,6 +18,7 @@ export async function request<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), body ? 120_000 : 12_000);
   try {
+    const upload = body instanceof Blob;
     if (body && !csrfToken) {
       const session = await fetch("/api/session", {
         signal: controller.signal,
@@ -25,12 +26,12 @@ export async function request<T>(
       });
       if (!session.ok)
         throw new ApiError(
-          "无法建立本地安全会话，请刷新页面。",
+          "Refresh to reconnect.",
           session.status,
         );
       const sessionData = (await session.json()) as { csrf_token?: unknown };
       if (typeof sessionData.csrf_token !== "string")
-        throw new ApiError("安全会话返回格式异常，请刷新页面。", 502);
+        throw new ApiError("Invalid session. Refresh to reconnect.", 502);
       csrfToken = sessionData.csrf_token;
     }
     const response = await fetch(
@@ -42,10 +43,14 @@ export async function request<T>(
           ? {
               method: "POST",
               headers: {
-                "Content-Type": "application/json",
+                "Content-Type": upload
+                  ? "name" in body && typeof body.name === "string" && /\.csv$/i.test(body.name) ? "text/csv"
+                    : "name" in body && typeof body.name === "string" && /\.eml$/i.test(body.name) ? "message/rfc822"
+                    : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  : "application/json",
                 "X-CSRF-Token": csrfToken,
               },
-              body: JSON.stringify({ ...body, provider }),
+              body: upload ? (body as Blob) : JSON.stringify({ ...body, provider }),
             }
           : {}),
       },
@@ -56,25 +61,25 @@ export async function request<T>(
     if (!response.ok) {
       if (response.status === 403) csrfToken = "";
       throw new ApiError(
-        data?.error || `服务暂时不可用（${response.status}）`,
+        data?.error || `Service unavailable (${response.status})`,
         response.status,
       );
     }
-    if (!data) throw new ApiError("服务返回格式异常，请刷新后重试。", 502);
+    if (!data) throw new ApiError("Invalid response. Refresh and retry.", 502);
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (controller.signal.aborted)
       throw new ApiError(
         body
-          ? "等待超时。操作可能仍在后台执行，请先刷新查看结果，避免重复提交。"
-          : "连接超时，请确认本地服务已启动。",
+          ? "Timed out. Refresh before trying again."
+          : "Connection timed out. Start the local service.",
         408,
       );
     throw new ApiError(
       body
-        ? "连接中断。请先刷新查看操作是否完成，再决定是否重试。"
-        : "无法连接工单服务，请确认本地服务已启动。",
+        ? "Connection lost. Refresh before trying again."
+        : "Local service unavailable.",
       0,
     );
   } finally {

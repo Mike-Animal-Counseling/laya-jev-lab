@@ -8,7 +8,7 @@ MAX_TICKETS = 100
 
 def empty_run(now):
     return {'analysis': None, 'team': None, 'status': 'pending', 'revision': 0,
-            'history': [{'label': '工单已收到', 'time': now}]}
+            'history': [{'label': 'Ticket received', 'time': now}]}
 
 
 def seed_tickets():
@@ -35,7 +35,7 @@ def migrate(items):
         for name in PROVIDERS:
             run = ticket['runs'].setdefault(name, empty_run(ticket['time']))
             run.setdefault('revision', 0)
-            if run.get('status') not in ('pending', 'analyzed', 'assigned') or not isinstance(run.get('history'), list):
+            if run.get('status') not in ('pending', 'analyzed', 'assigned', 'done') or not isinstance(run.get('history'), list):
                 raise ValueError('Invalid model run')
     return items
 

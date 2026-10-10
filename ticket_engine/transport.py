@@ -39,19 +39,19 @@ def request_jev(state, questions, *, api_key, model=DEFAULT_MODEL, timeout=30):
         with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=timeout) as response:
             raw = response.read(2 * 1024 * 1024 + 1)
             if len(raw) > 2 * 1024 * 1024:
-                raise ProviderError("Jev 返回内容过大。")
+                raise ProviderError("Jev response is too large.")
             result = json.loads(raw)
             if not isinstance(result, dict) or not isinstance(result.get("model"), str):
-                raise ProviderError("Jev 返回格式无效。")
+                raise ProviderError("Invalid Jev response.")
             return result
     except HTTPError as exc:
-        message = {401: "Jev API Key 无效，请检查本地配置。", 403: "Jev 账户没有调用权限。",
-                   429: "Jev 请求达到限额，请稍后重试。", 422: "Jev 拒绝了请求格式，请检查模型版本。",
-                   529: "Jev 暂时繁忙，请稍后重试。"}.get(exc.code, "Jev 服务暂时不可用，请稍后重试。")
+        message = {401: "Invalid Jev API key.", 403: "Jev account lacks access.",
+                   429: "Jev rate limit reached. Try again shortly.", 422: "Jev rejected the request. Check the model version.",
+                   529: "Jev is busy. Try again shortly."}.get(exc.code, "Jev is temporarily unavailable.")
         status = 429 if exc.code == 429 else 401 if exc.code in (401, 403) else 502
         exc.close()
         raise ProviderError(message, status) from None
     except (URLError, TimeoutError, socket.timeout):
-        raise ProviderError("无法连接 Jev，请检查网络后重试。", 504) from None
+        raise ProviderError("Could not connect to Jev. Check your network.", 504) from None
     except (ValueError, UnicodeError):
-        raise ProviderError("Jev 返回格式无效。") from None
+        raise ProviderError("Invalid Jev response.") from None

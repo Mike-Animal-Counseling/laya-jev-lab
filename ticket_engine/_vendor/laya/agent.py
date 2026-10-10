@@ -162,13 +162,23 @@ class Agent:
         self.tok = AutoTokenizer.from_pretrained(tok_dir, local_files_only=True, token=False, trust_remote_code=False)
 
         enc_dir = os.path.join(model_dir, "encoder")
-        self.model = build_model(self.cfg, encoder_dir=enc_dir if os.path.exists(enc_dir) else None)
+        # The complete checkpoint replaces every parameter. Build only shapes to
+        # avoid temporary random weights and native initialization failures.
+        with torch.device("meta"):
+            self.model = build_model(self.cfg, encoder_dir=enc_dir if os.path.exists(enc_dir) else None)
 
         # Load weights and verify architectural compatibility
         weights = load_file(weights_path)
         _verify_compatibility(self.model, self.cfg, weights, model_id_or_path)
 
-        self.model.load_state_dict(weights, strict=True)
+        self.model.load_state_dict(weights, strict=True, assign=True)
+        # Match the original CPU construction even for half-precision weights.
+        self.model.float()
+        # Rotary frequencies are non-persistent buffers, absent from the weights.
+        # Recompute them on CPU after the metadata-only construction.
+        rotary = self.model.encoder.rotary_emb
+        with torch.device("cpu"):
+            self.model.encoder.rotary_emb = type(rotary)(config=self.model.encoder.config)
 
         # ModernBERT's reference_compile defaults to "auto" and will torch.compile the encoder.
         # That is a loss for the batch sizes Laya runs (a handful of questions per call) and can

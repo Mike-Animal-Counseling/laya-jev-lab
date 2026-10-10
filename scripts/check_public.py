@@ -57,7 +57,7 @@ def inspect(name, data, allowed):
     if name == ".env.example":
         for line in data.decode("utf-8").splitlines():
             key, sep, value = line.partition("=")
-            if sep and key.strip() == "TYPESAFE_API_KEY" and value.strip():
+            if sep and (key.strip().endswith(("_KEY", "_TOKEN", "_PASSWORD")) or key.strip() in {"ZENDESK_EMAIL", "MAIL_IMAP_USER"}) and value.strip():
                 problems.append((name, "example-must-have-empty-key"))
     return problems
 
