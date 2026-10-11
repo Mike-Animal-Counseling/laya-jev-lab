@@ -1,13 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   poweredByHeader: false,
   async rewrites() {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:8780/api/:path*",
+        destination: `${process.env.SERVICE_BACKEND_URL || "http://127.0.0.1:8780"}/api/:path*`,
       },
+      { source: "/v1/:path*", destination: `${process.env.SERVICE_BACKEND_URL || "http://127.0.0.1:8780"}/v1/:path*` },
     ];
   },
   async headers() {

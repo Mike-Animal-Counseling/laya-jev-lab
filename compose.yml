@@ -1,0 +1,51 @@
+name: laya-jev
+services:
+  api:
+    image: laya-jev-api:0.2.0
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    environment:
+      SERVICE_PUBLIC_URL: ${SERVICE_PUBLIC_URL:-http://127.0.0.1:5180}
+    volumes:
+      - workspace-data:/app/var/cloud
+      - model-data:/app/models:ro
+    restart: unless-stopped
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8780/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+  web:
+    image: laya-jev-web:0.2.0
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    ports:
+      - ${SERVICE_HTTP_BIND:-127.0.0.1}:${SERVICE_HTTP_PORT:-5180}:5180
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  model-install:
+    image: laya-jev-api:0.2.0
+    profiles: [setup]
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    command: [python, projects/laya_ft/import_checkpoint.py, /artifacts/laya-v5-inference.zip]
+    volumes:
+      - model-data:/app/models
+      - ./downloads:/artifacts:ro
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+volumes:
+  workspace-data:
+  model-data:

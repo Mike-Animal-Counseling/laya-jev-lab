@@ -1,0 +1,38 @@
+name: Container deployment smoke
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build production images
+        run: docker compose build
+      - name: Initialize an isolated synthetic workspace
+        run: |
+          docker compose run --rm -T api python -c 'import os,secrets; from pathlib import Path; from cryptography.fernet import Fernet; from service.store import Store; os.umask(0o077); p=Path("/app/var/cloud"); (p/"master.key").write_bytes(Fernet.generate_key()); Store(p).create_workspace("synthetic", "admin", secrets.token_urlsafe(32))'
+      - run: docker compose up -d --no-build --wait
+      - name: Verify proxy, health and anonymous access boundaries
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+          origin = 'http://127.0.0.1:5180'
+          def read(path):
+              with urllib.request.urlopen(origin + path, timeout=10) as response:
+                  return json.load(response)
+          assert read('/api/auth/status')['authenticated'] is False
+          assert read('/v1/openapi.json')['info']['version'] == '0.2.0'
+          for path in ('/api/tickets', '/v1/tickets'):
+              try:
+                  read(path)
+                  raise AssertionError('Anonymous ticket access allowed')
+              except urllib.error.HTTPError as error:
+                  assert error.code == 401
+          PY
+      - name: Stop isolated containers
+        if: always()
+        run: docker compose down

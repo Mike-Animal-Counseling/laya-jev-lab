@@ -14,7 +14,7 @@ python -m pip install .
 
 ```sh
 python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
-python -m pip install ".[local]"
+python -m pip install ".[laya]"
 ```
 
 这是从本仓库安装的包，不表示同名包已发布到 PyPI。权重不装进 Python 包，需要按 README 导入单独提供的权重归档，然后显式传入其目录。
@@ -22,10 +22,10 @@ python -m pip install ".[local]"
 ## 本地 Laya
 
 ```python
-from ticket_engine import TicketEngine
+from ticket_engine import LayaEngine
 
 # 路径由你的应用明确提供；不会自动查找其他项目的模型。
-engine = TicketEngine("laya", model_path="models/ticket-finetuned-v5")
+engine = LayaEngine(model_path="models/ticket-finetuned-v5")
 result = engine.classify(
     "本月订阅被扣了两次，请帮我退回多扣的款项。",
     subject="重复扣费",
@@ -42,9 +42,9 @@ print(result.to_dict())
 
 ```python
 import getpass
-from ticket_engine import TicketEngine
+from ticket_engine import JevEngine
 
-engine = TicketEngine("jev", api_key=getpass.getpass("Jev API key: "))
+engine = JevEngine(api_key=getpass.getpass("Jev API key: "))
 result = engine.classify("请介绍一下团队套餐的价格。", subject="采购咨询")
 print(result.to_dict())
 ```
@@ -118,3 +118,11 @@ python examples/classify.py --engine compare
 ```
 
 Jev Key 在终端隐藏输入，不放入命令行历史。默认工单是合成内容。接入边界与类别定义见 [SCOPE.md](SCOPE.md)。
+
+## 接入已有工单系统
+
+`LayaEngine` 和 `JevEngine` 可以独立使用；只装基础包调用 Jev 时不需要 Torch。原来的 `TicketEngine` 接口保持兼容。调用方保留自己的账号、工单数据库和队列映射，参考 [helpdesk_adapter.py](examples/helpdesk_adapter.py)。
+
+网络接入时，部署可选认证服务，用 `ServiceClient` 或其他语言调用 `/v1/classify`。工作区 API Key 只放在后端，读写权限分别授权；每个逻辑操作传入稳定 UUID。详见 [REST API](docs/API.md) 和 [部署文档](docs/DEPLOYMENT.md)。
+
+安装 SDK 后，`ticket-classify --engine laya --model-path models/ticket-finetuned-v5` 从标准输入读取 `{"subject":"Billing","message":"Please refund the duplicate charge."}` JSON，向标准输出写入结果。Jev 选择 `--engine jev`，CLI 显式读取 `TYPESAFE_API_KEY`；SDK 本身不读取环境凭据。`--key-env` 可指定自己的变量名，避免把密钥写入命令行参数。

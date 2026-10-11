@@ -1,6 +1,6 @@
 # Ticket intake
 
-All sources produce the same ticket schema and use the same validation, duplicate checks and transactional save. Import never runs Laya or Jev. The current app remains a local, single-user workspace.
+All sources produce the same ticket schema and use the same validation, duplicate checks and transactional save. Import never runs Laya or Jev. Use the local demo or the optional authenticated workspace service.
 
 ## Files
 
@@ -10,7 +10,7 @@ Limits: one Excel sheet, 100 data rows, 2 MB upload, 8 MB expanded Excel archive
 
 Open **Import → Email** to upload a single `.eml` file. MIME plain text is preferred; HTML is reduced to text and is never rendered. Attachments are not imported. A Message-ID, when present, is retained as the source identity to prevent duplicate imports.
 
-## Connections
+## Local demo connections
 
 Copy `.env.example` to this repository's `.env.local` and fill only the connection you need. Never commit this file. The backend reads no parent configuration, environment credentials or system proxy. Connection status responses contain only booleans. Credentials remain in the backend and are never included in tickets or exports.
 
@@ -31,3 +31,9 @@ All connector pulls happen only on an explicit Sync action. They use public TLS 
 `POST /api/import/preview` accepts `.xlsx`, CSV or email bytes with the matching content type. `POST /api/intake/preview` accepts `{ "source": "email" | "zendesk" | "api" }`. Both return row-level `ready`, `duplicate` or `error` states. `POST /api/import` accepts `{ "rows": [...], "request_id": "UUID" }` and revalidates everything before one atomic save. All writes and previews require the app's localhost Host/Origin and CSRF controls. No general internet webhook is exposed by this loopback service.
 
 Imported customer data stays in the local `var/` database. Preview uploads are held in memory and not stored as files. Exports can contain imported personal information. Source publishing excludes runtime data, connections and credentials.
+
+## Shared service connections
+
+The authenticated deployment configures each workspace in **Settings ? Connections**; it does not inherit local-demo `.env.local` or environment provider keys. Secrets are encrypted and are never read back to the browser. Zendesk uses the operator's registered OAuth client, PKCE, expiring tokens and automatic refresh. Scheduled cursor sync also updates matching source tickets and invalidates stale analyses. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for provider setup and limits.
+
+REST and IMAP remain bounded manual previews. Confirm Import to save. The shared service requires login, an appropriate role, exact Origin and CSRF for browser actions. Imports and synchronization never invoke Laya or Jev. The generic integration API can import/upsert tickets through scoped keys; see [API.md](docs/API.md). No customer submission form is exposed.
