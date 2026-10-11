@@ -104,3 +104,7 @@ The source and inference archive include no original customer database, raw trai
 [CONTRIBUTING.md](CONTRIBUTING.md) covers development checks and reviewed source exports. Reports and contributions should use synthetic tickets. Security issues can be submitted through [private vulnerability reporting](https://github.com/Mike-Animal-Counseling/laya-jev-lab/security/advisories/new).
 
 Project code is licensed under **Apache-2.0**. Upstream Laya and the multilingual encoder retain their own licenses and attribution; see [NOTICE.md](NOTICE.md), [LICENSE](LICENSE) and the [model card](MODEL_CARD.md). This is an independent project with no claim of endorsement by either model provider.
+
+## Security and deployment
+
+Read the [security policy](SECURITY.md) and [production requirements](docs/PRODUCTION_SECURITY.md) before deployment.
