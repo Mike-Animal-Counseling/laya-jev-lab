@@ -447,7 +447,7 @@ export default function TicketDesk({
               {
                 key: "assigned",
                 label: "Assigned",
-                icon: "check",
+                icon: "user",
                 count: assignedCount,
               },
               { key: "done", label: "Done", icon: "check", count: doneCount },
@@ -1277,7 +1277,6 @@ export default function TicketDesk({
               <p className="dialog-description">
                 Add a request to your inbox.
               </p>
-              <Link className="form-preview-link" href="/submit" target="_blank" rel="noopener noreferrer">Open request form <Icon name="arrow" size={13} /></Link>
               <label htmlFor="ticket-subject">
                 Subject <span>Required</span>
               </label>

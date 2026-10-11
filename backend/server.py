@@ -164,14 +164,6 @@ def route_post(path, body, provider):
         source = body.get('source')
         sheet, parsed = pull_mail() if source == 'email' else pull_api(source)
         return import_preview(sheet, parsed)
-    if path == '/api/intake/form':
-        request_id = body.get('request_id')
-        row = {key: body.get(key, '') for key in ('subject', 'message', 'customer', 'company')}
-        row.update(channel='Form', source='form', source_id=request_id if isinstance(request_id, str) else '')
-        row = normalize_row(row)
-        status, data = route_post('/api/import', {'rows': [row], 'request_id': request_id}, provider)
-        ticket = next(t for t in data['tickets'] if row_key(t) == row_key(row))
-        return status, {'ticket': ticket}
     if path == '/api/import':
         raw_rows = body.get('rows')
         if not isinstance(raw_rows, list) or not 1 <= len(raw_rows) <= MAX_ROWS:

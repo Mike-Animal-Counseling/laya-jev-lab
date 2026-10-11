@@ -28,7 +28,6 @@
   "app/lib/api.ts",
   "app/lib/tickets.ts",
   "app/page.tsx",
-  "app/submit/page.tsx",
   "backend/classification.py",
   "backend/connectors.py",
   "backend/domain.py",

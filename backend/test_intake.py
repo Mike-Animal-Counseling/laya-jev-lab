@@ -1,4 +1,4 @@
-"""Unified source intake, safe connectors, identities and form submission."""
+"""Unified source intake, safe connectors and identities."""
 from io import BytesIO
 import json
 from pathlib import Path
@@ -94,15 +94,6 @@ class SourceAdapters(unittest.TestCase):
 
 
 class UnifiedIntake(ServiceCase):
-    def test_form_is_idempotent_model_free_and_in_the_same_inbox(self):
-        body = {'subject': 'Demo form', 'message': 'Synthetic request', 'customer': 'Demo user', 'request_id': str(uuid4())}
-        first = self.call('intake/form', body, 201)['ticket']
-        again = self.call('intake/form', body)['ticket']
-        self.assertEqual(first['id'], again['id'])
-        self.assertEqual(first['channel'], 'Form')
-        self.assertEqual(len(server.tickets), 9)
-        self.local_mock.assert_not_called(); self.remote_mock.assert_not_called()
-
     def test_connector_preview_never_saves_or_invokes_models(self):
         rows = api_rows([{'id': 1, 'subject': 'Demo API', 'message': 'Synthetic request'}])
         with patch.object(server, 'pull_api', return_value=('Zendesk', rows)):

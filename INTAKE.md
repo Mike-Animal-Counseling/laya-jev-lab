@@ -24,9 +24,7 @@ For email, fill `MAIL_IMAP_HOST`, `MAIL_IMAP_USER`, `MAIL_IMAP_PASSWORD` and opt
 
 All connector pulls happen only on an explicit Sync action. They use public TLS endpoints, pinned DNS results, bounded responses, connection timeouts and safe errors; redirects and private-network endpoints are not supported. Pulling produces a preview, not a saved ticket. Confirm **Import** to persist the new rows locally.
 
-## Forms and adapter contract
-
-The local request form is `/submit`, reachable from **New ticket → Open request form**. It creates a pending ticket through `POST /api/intake/form`, using a UUID request ID. The form does not call a model. It is a local demo form; customer-facing hosting and authentication are separate deployment work.
+## Adapter contract
 
 `backend/intake_sources.py` handles source-to-ticket mapping; `backend/connectors.py` handles configuration and read-only retrieval. New adapters return `(source_label, rows)`, where rows are `(row_number, normalized_ticket, issue)`. Use `normalize_row` for the shared schema. `source` and `source_id` are optional stable identities; ordinary files use exact content instead.
 

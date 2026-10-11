@@ -24,7 +24,7 @@ Stop the demo before deleting its `var/` directory to remove its database and ba
 
 ## Intake connections
 
-Excel/CSV/email preview uploads are parsed in memory; files are not stored. Confirmed rows and submitted forms are saved to the same local ticket database. Email attachments are ignored and HTML bodies are converted to text. These inputs may contain personal information; the source release ships only synthetic examples.
+Excel/CSV/email preview uploads are parsed in memory; files are not stored. Confirmed rows are saved to the same local ticket database. Email attachments are ignored and HTML bodies are converted to text. These inputs may contain personal information; the source release ships only synthetic examples.
 
 Optional Zendesk/REST/IMAP settings are read only from this repository's `.env.local`. Credentials are sent only to the explicitly configured verified TLS destination when the operator clicks Sync, and are never returned to the browser or included in exported tickets. Sync reads external data into a preview; it does not send replies, alter the source system, call an AI model or automatically save the preview. See [INTAKE.md](INTAKE.md).
 
