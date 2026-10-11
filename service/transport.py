@@ -35,7 +35,19 @@ def request(url, *, method='GET', token='', body=None):
             error.retry_after = delay
             raise error
         if response.status not in (200, 201, 204):
-            raise ServiceError('Source request failed. Check connection permissions.', 502, 'source_unauthorized' if response.status in (401, 403) else 'source_error')
+            code = 'source_unauthorized' if response.status in (401, 403) else 'source_error'
+            if response.status == 401:
+                # Refresh only when the provider confirms an invalid token.
+                # Other authorization failures need corrected permissions.
+                raw = response.read(8193)
+                if len(raw) <= 8192:
+                    try:
+                        payload = json.loads(raw)
+                    except (ValueError, UnicodeError):
+                        payload = None
+                    if isinstance(payload, dict) and payload.get('error') == 'invalid_token':
+                        code = 'source_invalid_token'
+            raise ServiceError('Source request failed. Check connection permissions.', 502, code)
         if response.status == 204:
             return {}
         raw = response.read(2 * 1024 * 1024 + 1)
