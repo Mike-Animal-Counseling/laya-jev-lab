@@ -19,4 +19,4 @@ The model card identifies the fixed V5 derivative and its limitations. The upstr
 
 ## Jev
 
-Jev is an external TypeSafe API. Its service, account, billing and terms are separate from this repository's source license. This repository is an independent comparison demo and does not claim endorsement by either model provider.
+Jev is an external TypeSafe API. Its service, account, billing and terms are separate from this repository's source license. This repository is an independent ticket-classification SDK and comparison workspace and does not claim endorsement by either model provider.

@@ -1,51 +1,50 @@
-# Laya × Jev · SaaS 工单分类引擎
+# Laya × Jev · SaaS Ticket Classification
 
-在同一张工单、同一套规则下，对照 **本地微调 Laya V5** 与 **TypeSafe Jev API** 的五项判断：负责团队、紧急程度、投诉、流失风险、退款诉求。
+[![Checks](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml/badge.svg)](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml) · [Apache-2.0](LICENSE) · [Download](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/tag/v0.1.0)
 
-项目提供可独立集成的 Python 分类模块，以及本机单用户的对比演示界面。Laya 在本机 CPU 上离线推理，不收取 API 调用费；Jev 由体验者配置自己的 API Key，主动分析时按服务商规则计费。它不是自动回复机器人，也不会真的发送退款、邮件或客服分配指令。
+**Compare fine-tuned Laya V5 and Jev on the same support tickets, using the same classification rules.**
 
-## 能力范围与直接集成
+This project provides a Python ticket-classification SDK and a local inbox for inspecting both models' decisions. Use it to explore SaaS support triage, compare local inference with a hosted API, and integrate structured classification into an existing workflow.
 
-我们提供明确范围和边界的 SaaS 工单分类能力：账单退款、技术故障、售前咨询、账号问题和综合请求，附带紧急程度、投诉、流失及退款信号。完整定义见 [SCOPE.md](SCOPE.md)。
+![Local inbox showing a synthetic billing ticket and Laya's classification](docs/inbox.png)
 
-只需引擎时不必安装或启动网页。在你的 Python 环境中，从本目录安装：
+## What it does
 
-```sh
-python -m pip install .
-```
+- Classifies tickets into **Billing, Technical, Sales, Accounts or General**.
+- Adds **priority, complaint, churn risk and refund** signals, with confidence and review reasons.
+- Compares saved Laya/Jev results side by side, including disagreements, latency and available token usage.
+- Provides a concise English inbox with **Flag, Assigned and Done**, manual review, batch analysis and export.
+- Imports **Excel, CSV and email files**, with validation, preview, duplicate checks and atomic saves.
+- Includes read-only **Zendesk, REST API and IMAP** adapters ready for operator-supplied configuration.
 
-```python
-from ticket_engine import TicketEngine
+The intended users are developers evaluating ticket-routing models and support teams exploring classification on their own representative tickets. Category definitions and integration boundaries are documented in [SCOPE.md](SCOPE.md).
 
-engine = TicketEngine("laya", model_path="models/ticket-finetuned-v5")
-result = engine.classify("本月订阅被重复扣款，请退款。", subject="账单问题")
-print(result.to_dict())
-```
+## Two engines, one rubric
 
-本地推理还需安装权重与 `.[local]` 依赖；Jev 只需显式传入调用方自己的 Key。SDK 不读取演示数据库、不启动服务、不自动查找凭据，也不保存工单。两种引擎共用分类规则和输出格式。完整安装、Jev/双引擎示例、输出字段及错误处理见 **[INTEGRATION.md](INTEGRATION.md)**。
+| | Fine-tuned Laya V5 | Jev |
+| --- | --- | --- |
+| Execution | Local CPU, offline inference | TypeSafe API over HTTPS |
+| Setup | Install the reviewed V5 weights | Supply your own API key |
+| Ticket data | Stays in the local process/workspace | Sent to TypeSafe when you explicitly analyze |
+| Cost | No inference API charge | Provider pricing applies |
+| Role | Task-specific local classifier | Hosted comparison engine |
 
-下面的步骤用于运行可选的网页演示。
+Both receive the same subject, message and five classification questions. Results, assignments and revisions stay separate per engine. Opening the comparison view does not invoke a model.
 
-## 可以体验什么
+**Confidence is not measured accuracy.** The examples are synthetic; the UI is not an independent benchmark. Review the [model card](MODEL_CARD.md) and evaluate representative, independently labelled tickets before automating routing.
 
-- 8 条明确标注的合成工单，也可以新建虚构工单。
-- 同一输入分别分析、保存各自结果，并排查看差异、耗时和分类分数。
-- 分类规则、低置信度人工确认、分配与重新打开、批量分析停止、结果导出。
-- 英文收件箱与示例、Done / Reopen 状态、Excel / CSV / 邮件预览导入。
-- Zendesk、通用 REST API 与 IMAP 只读拉取适配器；填入本机配置后手动同步、确认入库。配置和扩展说明见 [INTAKE.md](INTAKE.md)。
-- 来信、历史和详细分数按需展开；工单详情随页面自然滚动。
+## Quick start: local inbox
 
-分类置信度不是准确率；两模型结果一致也不代表判断正确。本项目没有把混合合成数据的分数包装成真实业务准确率。
-
-## 安装
-
-需要 **Python 3.12、Node.js 22.13+**。先下载源码到一个独立目录，以下命令都在该目录执行。
+Requires **Python 3.12** and **Node.js 22.13+**. The quick start below uses local CPU inference.
 
 ```sh
+git clone https://github.com/Mike-Animal-Counseling/laya-jev-lab.git
+cd laya-jev-lab
+git checkout v0.1.0
 python -m venv .venv
 ```
 
-激活环境：Windows PowerShell 使用 `.venv\Scripts\Activate.ps1`；macOS/Linux 使用 `source .venv/bin/activate`。
+Activate the environment with `.venv\Scripts\Activate.ps1` in Windows PowerShell, or `source .venv/bin/activate` on macOS/Linux. Other platforms need a compatible PyTorch build.
 
 ```sh
 python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
@@ -53,94 +52,55 @@ python -m pip install -r requirements.txt
 npm ci
 ```
 
-CPU 推理支持 Windows 和 Linux；其他平台需要选择兼容的 PyTorch 构建。上述版本为本次验证版本，不意味着永远无需更新安全补丁。
-
-### 安装微调权重
-
-源码仓库不包含大文件或训练数据。需要同一版本随附的 **`laya-v5-inference.zip`**，不要下载上游基础权重冒充本项目微调结果。
+Download [laya-v5-inference.zip](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/download/v0.1.0/laya-v5-inference.zip) into this directory. [SHA256SUMS.txt](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/download/v0.1.0/SHA256SUMS.txt) provides the archive checksum. Use the source and weights from the same release; the importer verifies every required file against the pinned V5 manifest and checks its notices.
 
 ```sh
-python projects/laya_ft/import_checkpoint.py /path/to/laya-v5-inference.zip
-```
-
-把示例参数换成实际 ZIP 路径。导入器只接受固定 V5、固定五项规则和与源码内 `ticket_engine/model-manifest.json` 相符的每个文件哈希，拒绝覆盖已有模型和不安全归档。它安装到 `models/ticket-finetuned-v5/`，不会扫描父目录、个人下载目录或全局模型缓存。
-
-权重未安装时，页面明确显示未就绪，不生成假结果。维护者应将权重 ZIP 作为同版本 GitHub Release 附件单独上传；目前源码中没有凭空编造下载地址。
-
-### 可选：配置 Jev
-
-复制 `.env.example` 为本目录下的 `.env.local`，在本机填入**你自己的** `TYPESAFE_API_KEY`。不要提交或分享这个文件。没有 Key 时仍可使用本地 Laya。
-
-网页演示的 Jev 适配器只读取当前项目的这个文件，不读取父目录配置、系统环境中的 Key、浏览器存储或系统代理。服务地址固定为 `https://api.typesafe.ai/v1/systemone`；Key 仅由 Python 后端发送给 TypeSafe，不返回浏览器。
-
-### 启动
-
-```sh
+python projects/laya_ft/import_checkpoint.py laya-v5-inference.zip
 npm run build
 python scripts/start.py
 ```
 
-打开 **http://127.0.0.1:5180/laya-ft**。后端只绑定 `127.0.0.1:8780`。启动器检查端口占用并拒绝复用其他服务；按 Ctrl+C 停止两个进程。
+Open **http://127.0.0.1:5180/laya-ft**. The app starts with eight synthetic tickets. First model loading takes longer than subsequent analyses; missing weights produce an explicit unconfigured state. Press Ctrl+C to stop both services.
 
-首次加载比后续分析慢。CPU 吞吐取决于机器和来信长度，不建议在演示服务中执行大规模批量评测。
+### Optional: enable Jev or source connections
 
-## 数据与隐私
+Copy `.env.example` to this repository's `.env.local`. Set your own `TYPESAFE_API_KEY` to enable Jev. No key is needed for local Laya inference. The app reads credentials only from its own configuration file and never returns them to the browser.
 
-| 内容 | 保存 / 发送位置 |
-| --- | --- |
-| 示例工单 | 仓库中的合成 fixture，无真人身份 |
-| 新建工单、分析结果、操作历史 | 本目录 `var/tickets.sqlite3` |
-| 重置 / 手动备份 | 本目录 `var/`，重置页面不会删除备份 |
-| Laya 输入 | 本机内存与当前项目数据库，不发送至模型平台 |
-| Jev 输入 | 点击 Jev 分析时发送标题、正文及分类规则至 TypeSafe |
-| Jev Key | 本目录 `.env.local`，不写入结果或导出 |
-| 导出文件 | 用户通过浏览器选择的下载位置，可能包含自行输入的数据 |
+For Zendesk, generic API or mailbox intake, follow [INTAKE.md](INTAKE.md). Click **Sync** to preview source tickets, then confirm **Import** to save them. The current adapters support bounded, manual pulls; pagination, scheduled synchronization, source updates and provider OAuth onboarding are future extensions.
 
-仅用合成内容公开演示。应用不承诺自动识别、遮蔽你后来输入的个人信息，也不控制第三方 API 的保留政策。详见 [PRIVACY.md](PRIVACY.md)。
+## Use the Python SDK
 
-## 测试与发布检查
-
-以下测试不需要模型权重或 API Key，不会请求 Jev：
+The SDK can be installed independently of the inbox, Node.js and demo database:
 
 ```sh
-python -m pip install --require-hashes -r backend/requirements.lock
-python -m unittest discover -s backend -p "test_*.py"
-python -m unittest discover -s tests -p "test_*.py"
-npm run test:ui
-npm run lint
-npm run build
-npm run typecheck
-python scripts/check_public.py
+python -m pip install .
 ```
 
-公开仓库必须从这个独立源码目录初始化，不能把原来的个人工作区或旧 Git 历史一起上传。选择 GitHub 提供的隐私邮箱作为提交身份；提交作者与邮箱也是公开信息。
+Local inference additionally needs `.[local]` and the reviewed model files. Then:
 
-初始化独立仓库后，可启用提交前检查：
+```python
+from ticket_engine import TicketEngine
 
-```sh
-git config core.hooksPath .githooks
-git add .
-python scripts/check_public.py --staged --identity
+engine = TicketEngine("laya", model_path="models/ticket-finetuned-v5")
+result = engine.classify(
+    "Our subscription was charged twice. Please refund the extra payment.",
+    subject="Duplicate charge",
+)
+print(result.to_dict())
 ```
 
-macOS/Linux 上还需执行 `chmod +x .githooks/pre-commit`；Windows 上 Git 使用该 hook 的 shell 解释器。
+The SDK returns structured results and does not persist tickets or discover credentials. See [INTEGRATION.md](INTEGRATION.md) for local/Jev examples, comparison, output fields and error handling (Chinese guide).
 
-检查器读取白名单 `release-files.json`，阻止未审查文件、典型密钥、本机路径、符号链接及误加入 Git 暂存区的运行数据。新增源文件需显式更新白名单并重新审查。它不能代替人工审查或证明绝无隐私问题。
+## Data and runtime boundaries
 
-需要重新打包源码时：
+The inbox is a **loopback-only, single-user workspace**. It does not provide public hosting, customer submission forms or multi-tenant authentication. Assignments stay in the local workspace; connectors do not send replies or modify external tickets.
 
-```sh
-python scripts/export_source.py ../laya-jev-lab-source.zip
-```
+Ticket contents, results and history persist in `var/`; credentials stay in `.env.local`. Both are excluded from source publication. Preview uploads are parsed in memory and not retained as files. The SDK itself has no ticket store. Exports can contain personal information supplied by an operator.
 
-只打包白名单源码，不附带 Git、Key、数据库、模型、依赖、构建产物或原始文件时间戳。目标 ZIP 已存在时拒绝覆盖。
+The source and inference archive include no original customer database, raw training examples, notebooks, credentials or inherited workspace history. Known-secret scanning is a useful check, not a proof that every possible privacy issue has been excluded. Details: [PRIVACY.md](PRIVACY.md) · [SECURITY.md](SECURITY.md).
 
-## 架构与边界
+## Contributing and license
 
-- Next.js / React 提供界面，仅代理固定本地 API，不直接访问 Jev。
-- Waitress 提供本地 Python HTTP 服务；两个模型有独立推理锁。
-- SQLite 事务确保保存成功后才更新内存；写入有 CSRF 校验、输入限制、频率限制、版本冲突保护和新建幂等键。
-- V5 使用固定哈希的 safetensors、离线配置与随仓库保留的 Laya 推理源码；不加载 pickle 权重或远程模型代码。
-- 这是**本地单用户**应用，没有账户系统、多租户或公网访问控制。不要直接把服务改为绑定公网；公开源码与公开托管服务是不同的交付形式。
+[CONTRIBUTING.md](CONTRIBUTING.md) covers development checks and reviewed source exports. Reports and contributions should use synthetic tickets. Security issues can be submitted through [private vulnerability reporting](https://github.com/Mike-Animal-Counseling/laya-jev-lab/security/advisories/new).
 
-许可、来源与模型局限见 [NOTICE.md](NOTICE.md)、[MODEL_CARD.md](MODEL_CARD.md)；安全维护说明见 [SECURITY.md](SECURITY.md)。
+Project code is licensed under **Apache-2.0**. Upstream Laya and the multilingual encoder retain their own licenses and attribution; see [NOTICE.md](NOTICE.md), [LICENSE](LICENSE) and the [model card](MODEL_CARD.md). This is an independent project with no claim of endorsement by either model provider.

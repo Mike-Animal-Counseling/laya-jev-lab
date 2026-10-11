@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A multilingual ticket classification experiment derived from the Laya multilingual checkpoint. It predicts category, urgency, complaint, churn and refund signals under the exact rules in `ticket_engine/rules.py`. It does not generate replies or independently perform business actions.
+A fine-tuned multilingual ticket classifier derived from the Laya multilingual checkpoint, used alongside Jev to compare SaaS support-triage decisions. It predicts category, urgency, complaint, churn and refund signals under the exact rules in `ticket_engine/rules.py`. It does not generate replies or independently perform business actions.
 
 The inference checkpoint identity and every configuration/tokenizer file hash are in `ticket_engine/model-manifest.json`. The weight SHA256 is `c4ee793b468368c257a152cd4c42ea5e95dd867fdd9eced21e752cae1b5d019f`.
 
@@ -25,6 +25,6 @@ The release intentionally contains no raw examples, optimizer state, notebook ex
 
 The inference ZIP contains five required inference files, a reduced `training_manifest.json`, and four license/model notices; its weight tensor data is unchanged. The importer requires hashes pinned in the source release, checks the notices against the source release, rejects additional files and never substitutes base-model weights. A checksum establishes integrity relative to the reviewed source, not independent authenticity if an attacker controls both.
 
-Source code and weights are distributed separately. The maintainer can attach the reviewed `laya-v5-inference.zip` to a matching GitHub Release; no public upload is performed by this project.
+Source code and weights are distributed separately in the [v0.1.0 release](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/tag/v0.1.0). Use the matching source tag and `laya-v5-inference.zip`; the release also supplies `SHA256SUMS.txt` for the archive. Model loading never downloads missing files automatically.
 
 Upstream sources and licenses are identified in [NOTICE.md](NOTICE.md). This project does not redistribute raw public training datasets and does not claim ownership of upstream models or the Jev service.

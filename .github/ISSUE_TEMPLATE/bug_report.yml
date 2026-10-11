@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a classification, intake, SDK or inbox problem.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: Use synthetic examples. Report security issues privately through the Security tab.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include a small synthetic ticket or input when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Release version, OS, Python/Node versions and engine used.
+    validations:
+      required: true

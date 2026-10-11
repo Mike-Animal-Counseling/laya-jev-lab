@@ -1,6 +1,6 @@
 # Security scope
 
-This repository is a loopback-only, single-user comparison demo. It is not an authenticated public service. Publishing its source does not grant remote access to the original author's machine, API key, database or models.
+This repository provides a ticket-classification SDK and a loopback-only, single-user comparison workspace. The inbox is not an authenticated public service. Publishing its source does not grant remote access to the original author's machine, API key or database. Only the explicitly reviewed inference archive is distributed through Releases.
 
 ## Implemented controls
 

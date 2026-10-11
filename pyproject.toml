@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "laya-jev-ticket-engine"
 version = "0.1.0"
-description = "Explicitly scoped SaaS ticket classification with local Laya and Jev API engines"
+description = "Fine-tuned Laya V5 and Jev for SaaS ticket classification and model comparison"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
