@@ -10,6 +10,7 @@ var/
 models/
 logs/
 review/
+downloads/
 training/
 .cache/
 .idea/

@@ -14,7 +14,7 @@ The standalone SDK has no ticket store or credential discovery: callers explicit
 
 Jev is an external API. The interface discloses that an explicit analysis action sends the selected ticket's subject and message, the fixed task questions, model identifier and the operator's API credential to TypeSafe over HTTPS. Opening the comparison view does not itself invoke a model. Batch analysis sends each selected pending ticket until stopped. Redirects and implicit system proxy configuration are disabled.
 
-No creator-owned credential or account is supplied. Each operator must configure their own `.env.local`. The backend does not read parent-workspace credentials or environment API keys. No credential is returned in API responses or analysis exports.
+No creator-owned credential or account is supplied. The local demo operator configures `.env.local`; the shared-service operator configures each workspace through Settings. The backend does not read parent-workspace credentials or environment API keys. No credential is returned in API responses or analysis exports.
 
 New ticket contents, results and history persist in `var/`. They are excluded from source export. Browser downloads are outside this protection: exported results may contain any personal information the operator entered. The application does not anonymize arbitrary free text before API calls or export.
 
@@ -33,3 +33,9 @@ Optional Zendesk/REST/IMAP settings are read only from this repository's `.env.l
 Use the allowlisted source archive or its independently initialized repository. Do not add runtime state, screenshots containing personal data, shell transcripts, unrelated notebooks, local IDE settings, or unreviewed artifacts. Git author names/emails and commit messages are public metadata and need their own review; configure a chosen public identity and GitHub privacy email before the first commit.
 
 Source scanning and safetensors metadata review cannot prove the absence of every possible secret or that learned parameters never encode training information. The packaged model is a fixed-label classifier and does not generate free-form text, but this is not a mathematical privacy guarantee.
+
+## Shared service storage
+
+The optional authenticated deployment stores workspace tickets, results, users, metadata audit events, sync progress and idempotency records in `var/cloud/` or a private Docker volume. Settings are encrypted with a private `master.key`; ticket text is not application-encrypted. Passwords and session/API/invitation tokens are hashed. Secret values are shown only at creation when appropriate, never returned as saved settings.
+
+Stateless `/v1/classify` stores its result and input digest, not the original subject/body. Imported inbox tickets retain their original content. Exports, backups and caches may contain personal data. Removing an inbox record is not comprehensive erasure of source data, backups or request caches. Operator retention/deletion guidance is in [DEPLOYMENT.md](docs/DEPLOYMENT.md). New workspaces contain no original-author tickets or credentials.
