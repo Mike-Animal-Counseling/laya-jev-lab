@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-IGNORED_DIRS = {".git", ".venv", "venv", "node_modules", ".next", "var", "models", "__pycache__", "build", "dist"}
+IGNORED_DIRS = {".git", ".venv", "venv", "node_modules", ".next", "var", "models", "downloads", "__pycache__", "build", "dist"}
 IGNORED_FILES = {".env.local", "next-env.d.ts", "tsconfig.tsbuildinfo"}
 RULES = {
     "private-key": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),

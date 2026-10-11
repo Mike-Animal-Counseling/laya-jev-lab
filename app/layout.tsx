@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./inbox.css";
+import "./workspace.css";
+import AuthGate from "./components/AuthGate";
 export const metadata: Metadata = {
   title: "Model Lab · Inbox",
   description: "A focused inbox for smarter ticket triage.",
@@ -12,7 +14,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><AuthGate>{children}</AuthGate></body>
     </html>
   );
 }

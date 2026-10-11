@@ -7,7 +7,7 @@ This project focuses on SaaS ticket classification and comparing fine-tuned Laya
 Follow the README installation steps. Backend and UI checks do not require live provider credentials:
 
 ```sh
-python -m pip install --require-hashes -r backend/requirements.lock
+python -m pip install --require-hashes -r service/requirements.lock
 python -m unittest discover -s backend -p "test_*.py"
 python -m unittest discover -s tests -p "test_*.py"
 npm run test:ui
@@ -23,7 +23,7 @@ Keep changes within the supported [classification scope](SCOPE.md). Preserve eng
 
 ## Review and publication
 
-Use synthetic tickets in tests, screenshots and issues. Keep `.env.local`, `var/`, models, raw datasets and private logs out of Git. New source files must be explicitly added to `release-files.json` and reviewed; `.gitignore` does not protect already tracked files.
+Use synthetic tickets in tests, screenshots and issues. Keep `.env.local`, `var/`, models, downloads, raw datasets and private logs out of Git. New source files must be explicitly added to `release-files.json` and reviewed; `.gitignore` does not protect already tracked files.
 
 ```sh
 git config core.hooksPath .githooks
@@ -39,3 +39,5 @@ python scripts/export_source.py ../laya-jev-lab-source.zip
 ```
 
 Model artifacts are separate Release assets, with matching source notices and pinned inference hashes. Changes to code or model notices require a matching artifact review before publishing a new version.
+
+The service tests use synthetic workspaces and mocked providers. Follow [DEPLOYMENT.md](docs/DEPLOYMENT.md) for optional real-runtime checks without creator credentials. Keep workspace checks on every persistence path and preserve atomic cursor commits, role checks and idempotency for paid API calls. Hash-lock optional service dependencies in `service/requirements.lock` and Linux CPU deployment dependencies in `deploy/requirements.lock`; review regenerated hashes rather than editing them manually.

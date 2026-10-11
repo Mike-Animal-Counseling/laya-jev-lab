@@ -137,6 +137,8 @@ def guard(headers, method):
 
 
 def route_get(path, provider):
+    if path == '/api/auth/status':
+        return 200, {'mode': 'local', 'authenticated': True, 'user': None}
     if path == '/api/intake/status':
         return 200, connection_status()
     if path == '/api/import/template':

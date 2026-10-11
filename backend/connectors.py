@@ -91,8 +91,8 @@ def json_get(url, authorization=''):
         connection.close()
 
 
-def pull_api(source):
-    values = config()
+def pull_api(source, values=None):
+    values = config() if values is None else values
     if source == 'zendesk':
         domain = values['ZENDESK_SUBDOMAIN']
         if not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', domain):
@@ -127,8 +127,8 @@ def pull_api(source):
     raise ImportError('Unsupported API source.')
 
 
-def pull_mail():
-    values = config()
+def pull_mail(values=None):
+    values = config() if values is None else values
     if not all(values[k] for k in ('MAIL_IMAP_HOST', 'MAIL_IMAP_USER', 'MAIL_IMAP_PASSWORD')):
         raise ImportError('Configure the IMAP mailbox first.')
     client = None
