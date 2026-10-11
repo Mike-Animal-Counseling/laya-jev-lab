@@ -1,0 +1,19 @@
+FROM node:24-alpine AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1 SERVICE_BACKEND_URL=http://api:8780
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY app ./app
+COPY public ./public
+COPY next.config.ts tsconfig.json postcss.config.mjs ./
+RUN npx next build
+
+FROM node:24-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=5180
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/public ./public
+USER node
+EXPOSE 5180
+CMD ["node", "server.js"]

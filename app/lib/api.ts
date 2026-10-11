@@ -9,6 +9,10 @@ export class ApiError extends Error {
 
 let csrfToken = "";
 
+export function clearSession() {
+  csrfToken = "";
+}
+
 /** Mutations are never retried automatically: a timed out request may have committed. */
 export async function request<T>(
   path: string,
@@ -60,6 +64,10 @@ export async function request<T>(
     } | null;
     if (!response.ok) {
       if (response.status === 403) csrfToken = "";
+      if (response.status === 401) {
+        csrfToken = "";
+        if (typeof window !== "undefined") window.dispatchEvent(new window.Event("session-expired"));
+      }
       throw new ApiError(
         data?.error || `Service unavailable (${response.status})`,
         response.status,

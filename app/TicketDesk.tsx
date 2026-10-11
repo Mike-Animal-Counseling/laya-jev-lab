@@ -20,6 +20,7 @@ import {
   type ApiData,
 } from "./lib/tickets";
 import { request } from "./lib/api";
+import { useAuth } from "./lib/auth";
 
 const api = (path: string, provider: Provider, body?: object) =>
   request<ApiData>(path, provider, body);
@@ -42,6 +43,8 @@ export default function TicketDesk({
 }: {
   initialProvider: Provider;
 }) {
+  const auth = useAuth();
+  const readOnly = auth.user?.role === "viewer";
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState("");
   const [view, setView] = useState("all");
@@ -192,6 +195,19 @@ export default function TicketDesk({
   const stale = !!ticket && isStale(ticket);
   const chosenTeam = teamChoice.id === ticket?.id ? teamChoice.team : "";
   const locked = !!busy || batch || saving || refreshing || loading;
+  const writeLocked = locked || readOnly;
+
+  useEffect(() => {
+    if (auth.mode !== "cloud" || locked) return;
+    let active = true;
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      void api("tickets", provider).then((data) => {
+        if (active) { setTickets(data.tickets); setRubricId(data.rubric_id); }
+      }).catch(() => {});
+    }, 30_000);
+    return () => { active = false; clearInterval(timer); };
+  }, [auth.mode, locked, provider]);
   const viewName =
     view === "review"
       ? "Flag"
@@ -244,12 +260,13 @@ export default function TicketDesk({
     target: Provider = provider,
     inBatch = false,
   ) {
-    if (busy) return false;
+    if (busy || readOnly) return false;
     if (!inBatch) chooseTicket(id);
     setBusy({ id, provider: target });
     setError("");
     try {
-      const data = await api("analyze", target, { id });
+      const source = tickets.find((t) => t.id === id);
+      const data = await api("analyze", target, { id, expected_revision: source?.runs[target].revision ?? 0 });
       update(data.ticket);
       if (!inBatch && filter === "pending") setFilter("all");
       return true;
@@ -261,7 +278,7 @@ export default function TicketDesk({
     }
   }
   async function analyzeAll() {
-    if (locked) return;
+    if (writeLocked) return;
     const queue = [...pending];
     stop.current = false;
     setBatch(true);
@@ -276,7 +293,7 @@ export default function TicketDesk({
     setNotice(`Analyzed ${done} of ${queue.length}`);
   }
   async function assign() {
-    if (!ticket || !analysis) return;
+    if (!ticket || !analysis || readOnly) return;
     setSaving(true);
     setError("");
     try {
@@ -294,7 +311,7 @@ export default function TicketDesk({
     }
   }
   async function create() {
-    if (saving) return;
+    if (saving || readOnly) return;
     const input = JSON.stringify([subject.trim(), message.trim()]);
     if (createAttempt.current.input !== input)
       createAttempt.current = { input, key: crypto.randomUUID() };
@@ -325,7 +342,7 @@ export default function TicketDesk({
     }
   }
   async function reopen() {
-    if (!ticket || locked) return;
+    if (!ticket || writeLocked) return;
     setSaving(true);
     setError("");
     try {
@@ -380,7 +397,7 @@ export default function TicketDesk({
     }
   }
   async function resolve() {
-    if (!ticket || locked) return;
+    if (!ticket || writeLocked) return;
     setSaving(true);
     setError("");
     try {
@@ -423,7 +440,7 @@ export default function TicketDesk({
         <div className="workspace-chip">
           <span className="workspace-icon">M</span>
           <div>
-            <strong>Support</strong>
+            <strong>{auth.user?.name || "Support"}</strong>
             <small>SUPPORT WORKSPACE</small>
           </div>
           <span className="workspace-dot" />
@@ -486,7 +503,7 @@ export default function TicketDesk({
               You make the final call.
             </p>
           </div>
-          <button
+          {auth.mode === "local" && <button
             className="reset-link"
             disabled={locked}
             onClick={() => {
@@ -496,12 +513,12 @@ export default function TicketDesk({
           >
             <Icon name="refresh" size={14} />
             Reset demo
-          </button>
+          </button>}
           <div className="workspace-footer">
             <span className="profile-avatar">ML</span>
             <div>
-              <strong>Model Lab</strong>
-              <small>Ticket workspace</small>
+              <strong>{auth.user?.username || "Model Lab"}</strong>
+              <small>{readOnly ? "View only" : "Ticket workspace"}</small>
             </div>
             <span className="workspace-dot" />
           </div>
@@ -542,13 +559,13 @@ export default function TicketDesk({
                   ? "Connecting"
                   : "Not connected"}
             </span>
-            <button className="button secondary import-trigger" disabled={locked}
+            <button className="button secondary import-trigger" disabled={writeLocked}
               onClick={() => { setError(""); setModal("import"); }}>
               <Icon name="upload" size={17} /> Import
             </button>
             <button
               className="button primary"
-              disabled={locked}
+              disabled={writeLocked}
               onClick={() => {
                 setError("");
                 setModal("new");
@@ -768,7 +785,7 @@ export default function TicketDesk({
                   <button
                     className="batch-button"
                     disabled={
-                      locked ||
+                      writeLocked ||
                       !pending.length ||
                       modelHealth(provider).status !== "ready"
                     }
@@ -820,7 +837,7 @@ export default function TicketDesk({
                   </button>
                 ))}
               </div>
-              {ticket && <button className="button secondary resolve-action" disabled={locked}
+              {ticket && <button className="button secondary resolve-action" disabled={writeLocked}
                 onClick={() => void (ticket.status === "done" ? reopen() : resolve())}>
                 <Icon name={ticket.status === "done" ? "refresh" : "check"} size={14} />
                 {ticket.status === "done" ? "Reopen" : "Done"}
@@ -861,7 +878,7 @@ export default function TicketDesk({
                 {!loading && (
                   <button
                     className="button primary"
-                    disabled={locked}
+                    disabled={writeLocked}
                     onClick={() => setModal("new")}
                   >
                     <Icon name="plus" size={17} />
@@ -875,7 +892,7 @@ export default function TicketDesk({
                 modelHealth={modelHealth}
                 isStale={isStale}
                 busy={busy}
-                locked={locked}
+                locked={writeLocked}
                 onAnalyze={analyze}
               />
             ) : (
@@ -1045,7 +1062,7 @@ export default function TicketDesk({
                             <select
                               id="team-choice"
                               value={chosenTeam}
-                              disabled={locked || stale}
+                              disabled={writeLocked || stale}
                               onChange={(e) =>
                                 setTeamChoice({
                                   id: ticket.id,
@@ -1065,7 +1082,7 @@ export default function TicketDesk({
                             <button
                               className="button primary full-width"
                               disabled={
-                                locked ||
+                                writeLocked ||
                                 stale ||
                                 (analysis.confidence < 0.65 && !chosenTeam)
                               }
@@ -1079,7 +1096,7 @@ export default function TicketDesk({
                         {["assigned", "done"].includes(ticket.status) && (
                           <button
                             className="button secondary full-width reopen-button"
-                            disabled={locked}
+                            disabled={writeLocked}
                             onClick={() => void reopen()}
                           >
                             <Icon name="refresh" size={14} />
@@ -1154,7 +1171,7 @@ export default function TicketDesk({
                         <button
                           className="reanalyze"
                           disabled={
-                            locked || modelHealth(provider).status !== "ready"
+                            writeLocked || modelHealth(provider).status !== "ready"
                           }
                           onClick={() => void analyze(ticket.id)}
                         >
@@ -1177,7 +1194,7 @@ export default function TicketDesk({
                       <button
                         className="button primary full-width"
                         disabled={
-                          locked || ticket.status === "done" || modelHealth(provider).status !== "ready"
+                          writeLocked || ticket.status === "done" || modelHealth(provider).status !== "ready"
                         }
                         onClick={() => void analyze(ticket.id)}
                       >

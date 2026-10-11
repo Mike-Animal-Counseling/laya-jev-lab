@@ -1,0 +1,6 @@
+{$SERVICE_DOMAIN} {
+    reverse_proxy web:5180
+    header Strict-Transport-Security "max-age=31536000"
+    header X-Content-Type-Options "nosniff"
+    header Referrer-Policy "no-referrer"
+}

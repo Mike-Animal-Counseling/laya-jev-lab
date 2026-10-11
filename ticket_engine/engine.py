@@ -84,6 +84,28 @@ class TicketEngine:
             self._model = model
             self._timeout = timeout
 
+    def _prepare_local(self):
+        if self._agent is not None:
+            return
+        try:
+            verify_checkpoint(self._model_path, QUESTIONS)
+        except (OSError, ValueError, TypeError, KeyError):
+            raise EngineError("invalid_checkpoint", "Install the reviewed local checkpoint and verify its files") from None
+        try:
+            self._agent = load_agent(self._model_path)
+        except ImportError:
+            raise EngineError("missing_dependency", "Install the local inference dependencies: pip install '.[local]'") from None
+        except Exception:
+            raise EngineError("model_load_failed", "The verified local model could not be loaded") from None
+
+    def prepare(self):
+        """Verify and load local Laya without classifying or invoking a hosted API."""
+        if self.provider != "laya":
+            raise EngineError("invalid_config", "prepare is only available for local Laya")
+        with self._lock:
+            self._prepare_local()
+        return self
+
     def classify(self, message: str, *, subject: str = "") -> ClassificationResult:
         state = validate_input(message, subject)
         if full_rubric_id(QUESTIONS) != EXPECTED["rubric_id"]:
@@ -91,17 +113,7 @@ class TicketEngine:
         with self._lock:
             start = time.perf_counter()
             if self.provider == "laya":
-                if self._agent is None:
-                    try:
-                        verify_checkpoint(self._model_path, QUESTIONS)
-                    except (OSError, ValueError, TypeError, KeyError):
-                        raise EngineError("invalid_checkpoint", "Install the reviewed local checkpoint and verify its files") from None
-                    try:
-                        self._agent = load_agent(self._model_path)
-                    except ImportError:
-                        raise EngineError("missing_dependency", "Install the local inference dependencies: pip install '.[local]'") from None
-                    except Exception:
-                        raise EngineError("model_load_failed", "The verified local model could not be loaded") from None
+                self._prepare_local()
                 try:
                     raw = self._agent.predict(deepcopy(state), deepcopy(QUESTIONS))
                     raw = {**raw, "model": "laya-ticket-full-" + EXPECTED["checkpoint_sha256"][:12]}
