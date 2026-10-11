@@ -50,7 +50,12 @@ def inspect(name, data, allowed):
     if len(data) > 2 * 1024 * 1024:
         problems.append((name, "oversized-source-file"))
     for label, pattern in RULES.items():
-        if pattern.search(data):
+        checked = data
+        if label == "private-network-address" and name.endswith(".lock"):
+            # A dotted PEP 440 dependency version is not a private host address.
+            # Other lockfile content (URLs/comments) is still scanned unchanged.
+            checked = re.sub(rb"(?m)^[A-Za-z0-9_.-]+==[A-Za-z0-9_.+!-]+(?=\s|$)", b"", data)
+        if pattern.search(checked):
             problems.append((name, label))
     if any(match[1].lower() not in EXAMPLE_EMAIL_DOMAINS for match in EMAIL.finditer(data)):
         problems.append((name, "unreviewed-email-address"))
