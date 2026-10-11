@@ -73,7 +73,7 @@ class Zendesk:
             config = settings.get('zendesk', {})
             if any(config.get(k) != record[k] for k in ('subdomain', 'client_id')):
                 raise ServiceError('Connection settings changed. Connect again.', 409)
-            body = {'grant_type': 'authorization_code', 'code': code, 'client_id': config['client_id'], 'redirect_uri': self.public_url + '/api/oauth/zendesk/callback', 'code_verifier': record['verifier'], 'expires_in': 1800, 'refresh_token_expires_in': 2592000}
+            body = {'grant_type': 'authorization_code', 'code': code, 'client_id': config['client_id'], 'redirect_uri': self.public_url + '/api/oauth/zendesk/callback', 'code_verifier': record['verifier'], 'scope': 'tickets:read', 'expires_in': 1800, 'refresh_token_expires_in': 2592000}
             if config.get('client_secret'):
                 body['client_secret'] = config['client_secret']
             tokens = self.request(f"https://{config['subdomain']}.zendesk.com/oauth/tokens", method='POST', body=body)
@@ -100,7 +100,7 @@ class Zendesk:
                 raise ServiceError('Connect Zendesk first.', 409, 'not_connected')
             if not force and config.get('expires_at', 0) > self.store.clock() + 60:
                 return config['access_token'], config['subdomain']
-            body = {'grant_type': 'refresh_token', 'refresh_token': config['refresh_token'], 'client_id': config['client_id'], 'expires_in': 1800, 'refresh_token_expires_in': 2592000}
+            body = {'grant_type': 'refresh_token', 'refresh_token': config['refresh_token'], 'client_id': config['client_id'], 'scope': 'tickets:read', 'expires_in': 1800, 'refresh_token_expires_in': 2592000}
             if config.get('client_secret'):
                 body['client_secret'] = config['client_secret']
             tokens = self.request(f"https://{config['subdomain']}.zendesk.com/oauth/tokens", method='POST', body=body)
@@ -112,7 +112,7 @@ class Zendesk:
         try:
             return self.request(f'https://{domain}.zendesk.com{path}', token=token)
         except ServiceError as exc:
-            if exc.code != 'source_unauthorized':
+            if exc.code != 'source_invalid_token':
                 raise
         token, domain = self.access_token(workspace, force=True)
         return self.request(f'https://{domain}.zendesk.com{path}', token=token)

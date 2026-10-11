@@ -6,6 +6,7 @@
 - Workspace-scoped REST classification/import/upsert endpoints, scoped expiring keys, OpenAPI contract and durable UUID retry protection.
 - Optional authenticated service: isolated workspaces, owner/member/viewer roles, invitations, session revocation and encrypted connection settings.
 - Zendesk OAuth with PKCE, expiring tokens, refresh rotation and disconnect; persisted incremental sync with pause, backoff, source updates and atomic cursor commits.
+- Explicit ticket-read scopes on token exchange/refresh; reactive refresh requires a confirmed invalid-token response, not a permission failure.
 - English login/settings screens, viewer controls, shared inbox refresh and Docker/HTTPS deployment instructions.
 - Service security regression tests and container smoke CI. Provider tests use mocks; real-account OAuth needs operator configuration.
 

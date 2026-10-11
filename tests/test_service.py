@@ -225,6 +225,7 @@ class ServiceTests(unittest.TestCase):
         zendesk, requester = self.oauth()
         query = parse_qs(urlsplit(zendesk.begin(self.user)).query)
         self.assertEqual(query['code_challenge_method'], ['S256'])
+        self.assertEqual(query['scope'], ['tickets:read'])
         state = query['state'][0]
         other, _ = self.store.login('acme', 'admin', 'synthetic-test-password')
         with self.assertRaises(ServiceError):
@@ -234,6 +235,7 @@ class ServiceTests(unittest.TestCase):
             zendesk.callback(self.user, state, 'synthetic-code')
         self.assertEqual(requester.call_count, 1)
         self.assertIn('code_verifier', requester.call_args.kwargs['body'])
+        self.assertEqual(requester.call_args.kwargs['body']['scope'], 'tickets:read')
 
     def test_oauth_expiry_refresh_rotation_and_disconnect(self):
         zendesk, requester = self.oauth()
@@ -243,6 +245,7 @@ class ServiceTests(unittest.TestCase):
         requester.return_value = {'access_token': 'synthetic-next-access', 'refresh_token': 'synthetic-next-refresh', 'expires_in': 1800}
         token, _ = zendesk.access_token(self.a)
         self.assertEqual(token, 'synthetic-next-access')
+        self.assertEqual(requester.call_args.kwargs['body']['scope'], 'tickets:read')
         self.assertEqual(self.store.settings(self.a)['zendesk']['refresh_token'], 'synthetic-next-refresh')
         requester.return_value = {}
         self.assertTrue(zendesk.disconnect(self.a)['provider_revoked'])
@@ -256,6 +259,34 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(ServiceError):
             zendesk.callback(self.user, state, 'synthetic-code')
         requester.assert_not_called()
+
+    def test_oauth_permission_failure_does_not_rotate_credentials(self):
+        zendesk, requester = self.oauth()
+        state = parse_qs(urlsplit(zendesk.begin(self.user)).query)['state'][0]
+        zendesk.callback(self.user, state, 'synthetic-code')
+        requester.reset_mock()
+        requester.side_effect = ServiceError('Source permission denied.', 502, 'source_unauthorized')
+        with self.assertRaises(ServiceError):
+            zendesk.api(self.a, '/api/v2/tickets.json')
+        requester.assert_called_once()
+        self.assertEqual(self.store.settings(self.a)['zendesk']['refresh_token'], 'synthetic-refresh')
+
+    def test_oauth_confirmed_invalid_token_refreshes_once(self):
+        zendesk, requester = self.oauth()
+        state = parse_qs(urlsplit(zendesk.begin(self.user)).query)['state'][0]
+        zendesk.callback(self.user, state, 'synthetic-code')
+        requester.reset_mock()
+        requester.side_effect = [
+            ServiceError('Source token invalid.', 502, 'source_invalid_token'),
+            {'access_token': 'synthetic-next-access', 'refresh_token': 'synthetic-next-refresh', 'expires_in': 1800},
+            {'tickets': []},
+        ]
+        self.assertEqual(zendesk.api(self.a, '/api/v2/tickets.json'), {'tickets': []})
+        self.assertEqual(requester.call_count, 3)
+        refresh = requester.call_args_list[1].kwargs['body']
+        self.assertEqual(refresh['grant_type'], 'refresh_token')
+        self.assertEqual(refresh['scope'], 'tickets:read')
+        self.assertEqual(requester.call_args.kwargs['token'], 'synthetic-next-access')
 
     def sync(self):
         self.store.save_settings(self.a, {'zendesk': {'subdomain': 'example', 'access_token': 'synthetic'}})
@@ -308,6 +339,31 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(len(json.loads(db.execute('SELECT state FROM workspaces WHERE id=?', (self.a,)).fetchone()[0])), 1)
         with self.assertRaises(ServiceError):
             self.store.backup(target)
+
+
+class SourceTransportContracts(unittest.TestCase):
+    def failure(self, status, raw):
+        from service.transport import request
+        with patch('connectors.PublicHTTPS') as factory:
+            connection = factory.return_value
+            response = connection.getresponse.return_value
+            response.status, response.read.return_value = status, raw
+            with self.assertRaises(ServiceError) as raised:
+                request('https://example.zendesk.com/api/v2/tickets.json', token='synthetic-token')
+            connection.close.assert_called_once()
+            self.assertNotIn('synthetic-private', str(raised.exception))
+            return raised.exception.code, response
+
+    def test_only_confirmed_401_invalid_token_is_refreshable(self):
+        code, response = self.failure(401, b'{"error":"invalid_token","error_description":"synthetic-private-detail"}')
+        self.assertEqual(code, 'source_invalid_token')
+        response.read.assert_called_once_with(8193)
+        for status, raw in ((403, b'{"error":"invalid_token"}'), (401, b'{"error":"insufficient_scope"}'), (401, b'not json')):
+            with self.subTest(status=status, raw=raw):
+                self.assertEqual(self.failure(status, raw)[0], 'source_unauthorized')
+
+    def test_oversized_authorization_response_does_not_trigger_refresh(self):
+        self.assertEqual(self.failure(401, b' ' * 8193)[0], 'source_unauthorized')
 
 
 if __name__ == '__main__':

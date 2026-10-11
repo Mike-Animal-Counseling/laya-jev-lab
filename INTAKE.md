@@ -34,6 +34,6 @@ Imported customer data stays in the local `var/` database. Preview uploads are h
 
 ## Shared service connections
 
-The authenticated deployment configures each workspace in **Settings ? Connections**; it does not inherit local-demo `.env.local` or environment provider keys. Secrets are encrypted and are never read back to the browser. Zendesk uses the operator's registered OAuth client, PKCE, expiring tokens and automatic refresh. Scheduled cursor sync also updates matching source tickets and invalidates stale analyses. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for provider setup and limits.
+The authenticated deployment configures each workspace in **Settings → Connections**; it does not inherit local-demo `.env.local` or environment provider keys. Secrets are encrypted and are never read back to the browser. Zendesk uses the operator's registered OAuth client, PKCE, expiring tokens and automatic refresh. Scheduled cursor sync also updates matching source tickets and invalidates stale analyses. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for provider setup and limits.
 
 REST and IMAP remain bounded manual previews. Confirm Import to save. The shared service requires login, an appropriate role, exact Origin and CSRF for browser actions. Imports and synchronization never invoke Laya or Jev. The generic integration API can import/upsert tickets through scoped keys; see [API.md](docs/API.md). No customer submission form is exposed.
