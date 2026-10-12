@@ -2,7 +2,7 @@
 
 ## What ships
 
-The source distribution contains application code, synthetic fixtures, unit tests, blank credential configuration, dependency manifests, documentation and reviewed upstream runtime source. It contains no original workspace database, ticket exports, raw training/evaluation datasets, training notebooks, local logs, cached API responses, credentials, personal directories or inherited Git history.
+The source distribution contains application code, clean reusable training tools, synthetic fixtures, unit tests, blank credential configuration, dependency manifests, documentation and reviewed upstream runtime source. It contains no original workspace database, ticket exports, raw training/evaluation datasets, original training notebooks, local logs, cached API responses, credentials, personal directories or inherited Git history.
 
 Synthetic fixture identities are explicitly numbered demo users and example teams. The examples do not represent actual customers. Tests use temporary stores and fake adapters.
 
@@ -39,3 +39,9 @@ Source scanning and safetensors metadata review cannot prove the absence of ever
 The optional authenticated deployment stores workspace tickets, results, users, metadata audit events, sync progress and idempotency records in `var/cloud/` or a private Docker volume. Settings are encrypted with a private `master.key`; ticket text is not application-encrypted. Passwords and session/API/invitation tokens are hashed. Secret values are shown only at creation when appropriate, never returned as saved settings.
 
 Stateless `/v1/classify` stores its result and input digest, not the original subject/body. Imported inbox tickets retain their original content. Exports, backups and caches may contain personal data. Removing an inbox record is not comprehensive erasure of source data, backups or request caches. Operator retention/deletion guidance is in [DEPLOYMENT.md](docs/DEPLOYMENT.md). New workspaces contain no original-author tickets or credentials.
+
+## Optional training
+
+An owner can explicitly authorize sanitized labelled tickets to be sent to their own private Kaggle dataset for GPU training. This is an external data transfer. Preview drops unused identity columns and masks common email/phone/token patterns; it cannot remove every sensitive detail. Review input before uploading. Kaggle receives remaining text and labels. Tasks and datasets remain in that account until deleted there; stopping local tracking does not cancel a GPU job or erase remote data.
+
+Preview snapshots and Kaggle tokens are encrypted in the service database. Sanitized job bundles and adapters in private `var/cloud/training/` files are not application-encrypted. Backups must protect this directory together with the database and separate encryption key. Adapter downloads contain decision weights and aggregate evaluation, not raw tickets or credentials, but learned weights are not a privacy guarantee. Do not publish customer-derived adapters without a separate review. See [TRAINING.md](docs/TRAINING.md) for setup, limits, disconnect and retention.

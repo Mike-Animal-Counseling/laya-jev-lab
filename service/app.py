@@ -8,6 +8,7 @@ import secrets
 import sqlite3
 import threading
 import time
+from dataclasses import dataclass
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 from wsgiref.headers import Headers
@@ -22,6 +23,14 @@ from .shared import IntakeError, api_rows, parse_csv, parse_eml, parse_excel, te
 from .store import token_hash
 from .workspace import Workspace, project, request_id, ticket_by_id
 from .zendesk import Zendesk, configuration
+from .training import Training
+
+
+@dataclass
+class Download:
+    body: bytes
+    content_type: str
+    filename: str
 
 
 class Limiter:
@@ -43,7 +52,7 @@ class Limiter:
 
 
 class Application:
-    def __init__(self, store, engines, public_url, *, zendesk=None):
+    def __init__(self, store, engines, public_url, *, zendesk=None, training=None):
         parsed = urlsplit(public_url)
         if parsed.username or parsed.password or parsed.path not in ('', '/') or parsed.query or parsed.fragment or not parsed.hostname or parsed.scheme not in ('http', 'https') or (parsed.scheme == 'http' and parsed.hostname not in ('localhost', '127.0.0.1', '::1')):
             raise ServiceError('Configure one HTTPS public origin, or HTTP localhost for development.', 503, 'invalid_configuration')
@@ -53,6 +62,7 @@ class Application:
         self.store, self.engines = store, engines
         self.zendesk = zendesk or Zendesk(store, self.public_url)
         self.scheduler = Scheduler(store, self.zendesk, self.workspace)
+        self.training = training or Training(store, engines)
         self.workspaces, self.workspace_lock = {}, threading.Lock()
         self.limiter = Limiter()
 
@@ -374,11 +384,43 @@ class Application:
             if not secrets.compare_digest(headers.get('X-CSRF-Token', ''), user['csrf']):
                 raise ServiceError('Session expired. Refresh and retry.', 403, 'csrf_failed')
             self.limiter.check(('write', user['workspace_id']), 120)
-            body = self.body(environ, upload=path == '/api/import/preview')
+            body = self.body(environ, upload=path in ('/api/import/preview', '/api/training/preview'))
             if path == '/api/auth/logout':
                 self.store.logout_hash(user['hash'])
                 return 200, {'authenticated': False}, [('Set-Cookie', self.cookie('', clear=True))]
             self.require(user)
+        if path.startswith('/api/training'):
+            self.require(user, 'owner')
+            workspace = user['workspace_id']
+            if method == 'GET' and path == '/api/training':
+                return 200, self.training.status(workspace), []
+            if method == 'GET' and path == '/api/training/template':
+                from training.data import template
+                return 200, Download(template().encode(), 'text/csv; charset=utf-8', 'training-template.csv'), []
+            if method == 'GET' and path == '/api/training/model':
+                value = self.training.download(workspace, query.get('id', [''])[0])
+                return 200, Download(value, 'application/zip', 'laya-adapter.zip'), []
+            if method == 'POST':
+                if path == '/api/training/connect':
+                    value = self.training.connect(workspace, body, user['username'])
+                elif path == '/api/training/disconnect':
+                    value = self.training.disconnect(workspace, user['username'])
+                elif path == '/api/training/preview':
+                    value = self.training.preview(workspace, body, environ.get('CONTENT_TYPE', '').split(';')[0].strip().lower())
+                elif path == '/api/training/start':
+                    value = self.training.start_job(workspace, body, user['username'])
+                elif path == '/api/training/check':
+                    value = self.training.retry(workspace, body.get('id'))
+                elif path == '/api/training/abandon':
+                    value = self.training.abandon(workspace, body.get('id'), body, user['username'])
+                elif path == '/api/training/use':
+                    value = self.training.use_model(workspace, body.get('id'), user['username'])
+                elif path == '/api/training/restore':
+                    value = self.training.restore(workspace, user['username'])
+                else:
+                    raise ServiceError('Not found.', 404)
+                return 200, value, []
+            raise ServiceError('Not found.', 404)
         if path == '/api/settings' and method == 'GET':
             self.require(user, 'owner')
             return 200, self.settings_view(user['workspace_id']), []
@@ -406,7 +448,10 @@ class Application:
             status, value, extra = 503, {'error': 'Service could not complete the request.', 'code': 'service_error', 'request_id': identity}, []
         except Exception:
             status, value, extra = 500, {'error': 'Request failed safely.', 'code': 'internal_error', 'request_id': identity}, []
-        if isinstance(value, bytes):
+        if isinstance(value, Download):
+            raw, content_type = value.body, value.content_type
+            extra.append(('Content-Disposition', f'attachment; filename="{value.filename}"'))
+        elif isinstance(value, bytes):
             raw, content_type = value, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             extra.append(('Content-Disposition', 'attachment; filename="tickets.xlsx"'))
         else:

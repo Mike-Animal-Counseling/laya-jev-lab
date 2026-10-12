@@ -69,6 +69,8 @@ REST/IMAP provide bounded manual preview/import. Mailbox OAuth and scheduled RES
 
 ## Backup and operation
 
+Owners can adapt V5 in **Settings → Train** with their own Kaggle account. The Docker API includes the optional connector; its host requires no training GPU. See [TRAINING.md](TRAINING.md) for labelled inputs, platform requirements, external data transfer and validation limits. Run one API replica for both sync and training coordination.
+
 ```sh
 docker compose exec api python -m service.manage backup /app/var/cloud/backups/snapshot.sqlite3
 docker compose cp api:/app/var/cloud/backups/snapshot.sqlite3 ./private-backup.sqlite3
@@ -76,6 +78,8 @@ docker compose cp api:/app/var/cloud/master.key ./private-master.key
 ```
 
 Choose a fresh filename. Protect snapshot and key separately; both recover encrypted settings. Ticket text is not encrypted by the application. Use encrypted disks/backups, restrict operator access and never publish these files.
+
+If training is used, also back up `/app/var/cloud/training/` privately. Stop the service for a coordinated database/files snapshot. Enabled adapters require the matching files after restoration. This directory contains sanitized training snapshots and customer-derived weights; the SQLite backup command alone does not include it. No local backup removes data from Kaggle.
 
 Test restoration in an isolated volume: stop API, restore snapshot as `service.sqlite3` and matching `master.key`, remove obsolete WAL/SHM only from that stopped restored store, preserve UID 10001 ownership, restart one replica. Verify login/model/settings before sync.
 

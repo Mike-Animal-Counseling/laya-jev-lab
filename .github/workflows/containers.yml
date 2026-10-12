@@ -16,6 +16,25 @@ jobs:
         run: |
           docker compose run --rm -T api python -c 'import os,secrets; from pathlib import Path; from cryptography.fernet import Fernet; from service.store import Store; os.umask(0o077); p=Path("/app/var/cloud"); (p/"master.key").write_bytes(Fernet.generate_key()); Store(p).create_workspace("synthetic", "admin", secrets.token_urlsafe(32))'
       - run: docker compose up -d --no-build --wait
+      - name: Verify the training connector and private bundle inside the production image
+        run: |
+          docker compose exec -T api python - <<'PY'
+          import json, tempfile
+          from pathlib import Path
+          from uuid import uuid4
+          from service.kaggle_provider import KaggleProvider
+          from training.bundle import build
+          from training.data import prepare
+          assert KaggleProvider().available()
+          rows = [{'subject': f'Synthetic {category} {i}', 'message': f'Synthetic request {category} {i}.', 'category': category, 'group_id': f'{category}-{i}'}
+                  for category in ('refund', 'technical') for i in range(10)]
+          with tempfile.TemporaryDirectory() as directory:
+              paths = build(Path(directory), prepare(rows), 'synthetic-user', str(uuid4()))
+              metadata = json.loads((paths['kernel_dir'] / 'kernel-metadata.json').read_text())
+              assert metadata['is_private'] is True and metadata['enable_gpu'] is True
+              assert (paths['input_dir'] / 'runtime.zip').is_file()
+          print('Training runtime and private bundle verified; no external task submitted.')
+          PY
       - name: Verify proxy, health and anonymous access boundaries
         run: |
           python - <<'PY'

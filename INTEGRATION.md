@@ -38,6 +38,19 @@ print(result.to_dict())
 
 模块不修改调用进程的环境变量、`sys.path` 或 PyTorch 全局线程数。若需要限制 CPU 线程，由你的应用显式配置，例如加载模型前使用 `torch.set_num_threads(4)`。当前公开适配器使用 CPU。
 
+## Adapted Laya
+
+For a workspace-trained Laya adapter, pass an explicit private directory:
+
+```python
+from ticket_engine import LayaEngine
+
+engine = LayaEngine("models/ticket-finetuned-v5", adapter_path="private-models/my-team")
+engine.prepare()
+```
+
+The original V5 remains required and hash-verified. Only labelled fields use adapted decision weights; all other fields keep V5. The SDK needs no Kaggle or service dependency. See [training and adapter deployment](docs/TRAINING.md). Jev cannot load Laya adapters.
+
 ## Jev
 
 ```python

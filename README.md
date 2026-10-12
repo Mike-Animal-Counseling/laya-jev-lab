@@ -6,6 +6,10 @@
 
 Use the Python SDK without a UI, connect any helpdesk to the REST API, or run an optional inbox with authenticated workspaces. Your helpdesk keeps customer conversations and business actions.
 
+[中文使用与测试指南](docs/USAGE.zh-CN.md) covers setup, synthetic examples, intake, classification, comparison, REST, independent SDKs and training.
+
+**Adapt V5 to your labelled tickets:** connect your own Kaggle account once, import CSV/Excel in **Settings → Train**, and run a private GPU task from the app. Compare held-out results before **Use model**. Download the adapter for standalone SDK use, or restore V5 anytime. See the [training guide](docs/TRAINING.md), including real-account setup and validation limits.
+
 ![Inbox showing a synthetic billing ticket and Laya classification](docs/inbox.png)
 
 ## Choose your integration
@@ -16,6 +20,7 @@ Use the Python SDK without a UI, connect any helpdesk to the REST API, or run an
 | Jev in a Python app | `JevEngine` | Python 3.12, your TypeSafe key; no Torch |
 | Any existing helpdesk | REST `/v1/classify` | Self-hosted service, scoped integration key |
 | A shared team inbox | Docker Compose | Operator-created workspace; HTTPS remotely |
+| Adapt Laya to your helpdesk | Settings → Train | Labelled tickets, your Kaggle token/GPU quota; verified V5 |
 | Single-user evaluation | Local demo | Python 3.12, Node.js 22.13+ |
 
 The SDK is a separate Python package built from this repository. It has no frontend, database or credential discovery, and is not currently published to PyPI.
@@ -115,6 +120,7 @@ Open **http://127.0.0.1:5180/laya-ft**. The loopback-only demo starts with eight
 - English **Inbox, Flag, Assigned, Done**, review, comparison and export.
 - **Excel, CSV, email files, REST, IMAP and Zendesk** intake with validation and duplicate checks. [Intake guide](INTAKE.md).
 - Workspace roles, scoped keys, revision checks and explicit model calls. Imports and scheduled sync never invoke AI.
+- Workspace-owned Laya adaptation, private Kaggle tasks, held-out comparison and downloadable adapters. Unlabelled fields keep V5 decisions.
 - Laya stays local. Explicit Jev analysis sends subject/body to TypeSafe; provider pricing applies. Opening comparison only reads saved results.
 
 Confidence is not measured accuracy. Evaluate representative, independently labelled tickets before automating routing. The project does not send replies, modify Zendesk tickets or expose customer submission forms. See [SCOPE.md](SCOPE.md) and [MODEL_CARD.md](MODEL_CARD.md).
