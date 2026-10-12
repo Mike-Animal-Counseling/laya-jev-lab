@@ -12,6 +12,16 @@ logs/
 review/
 downloads/
 training/
+!training/
+training/*
+!training/__init__.py
+!training/bundle.py
+!training/data.py
+!training/kaggle_bootstrap.py
+!training/metrics.py
+!training/requirements.in
+!training/requirements.lock
+!training/runner.py
 .cache/
 .idea/
 .vscode/

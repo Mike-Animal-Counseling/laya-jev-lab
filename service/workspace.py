@@ -176,7 +176,8 @@ class Workspace:
                 items = self.store.state(self.identity, db)
                 current = ticket_by_id(items, body['id'])
                 current_run = current['runs'][provider]
-                if current_run['revision'] != revision or fingerprint({'subject': current['subject'], 'message': current['message']}) != result['input_id']:
+                if (current_run['revision'] != revision or fingerprint({'subject': current['subject'], 'message': current['message']}) != result['input_id']
+                        or self.engines.status(self.identity)[provider]['model'] != result['model']):
                     raise ServiceError('Ticket changed during analysis. Result was discarded.', 409)
                 current_run['analysis'] = result
                 if current_run['status'] not in ('done', 'assigned'):

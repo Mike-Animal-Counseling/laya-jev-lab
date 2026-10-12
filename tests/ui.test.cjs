@@ -62,6 +62,7 @@ for (const extension of [".tsx", ".ts"]) {
     );
 }
 const TicketDesk = require("../app/TicketDesk.tsx").default;
+const TrainLaya = require("../app/components/TrainLaya.tsx").default;
 let root, tickets, calls, failRead, importErrors, failImport, connections;
 const clone = (value) => structuredClone(value);
 function analysis(provider) {
@@ -464,4 +465,112 @@ test("Done moves a ticket out of Inbox and Reopen restores its active state", as
   await click(document.querySelector(".resolve-action"));
   assert.equal(tickets[0].runs["laya-ft"].status, "analyzed");
   assert.equal(document.querySelectorAll(".ticket-row").length, 2);
+});
+
+function trainingFixture() {
+  const summary = { tickets: 20, categories: { refund: 10, technical: 10 },
+    splits: { train: 12, validation: 4, test: 4 }, trained_fields: ["category"],
+    unchanged_fields: ["urgency", "complaint", "churn", "refund"], redacted_fields: 2,
+    missing_categories: ["sales", "account", "other"] };
+  const state = { connector_available: true, connected: true, username: "synthetic-user", active_model: null, jobs: [] };
+  const fixture = { state, summary, failStart: false };
+  const fallback = global.fetch;
+  global.fetch = async (url, options = {}) => {
+    const path = new URL(url, window.location.href).pathname;
+    if (!path.startsWith("/api/training")) return fallback(url, options);
+    const body = options.body instanceof Blob ? options.body : options.body ? JSON.parse(options.body) : null;
+    calls.push({ path, body, headers: options.headers });
+    if (path === "/api/training") return response(clone(state));
+    if (path === "/api/training/preview") {
+      assert.ok(body instanceof Blob);
+      return response({ dataset_id: "synthetic-dataset", summary });
+    }
+    if (path === "/api/training/start") {
+      if (fixture.failStart) return response({ error: "Synthetic connection failure" }, 503);
+      state.jobs.unshift(trainingJob(body.request_id, summary, "queued"));
+    } else if (path === "/api/training/use") state.active_model = body.id;
+    else if (path === "/api/training/restore") state.active_model = null;
+    else if (path === "/api/training/abandon") state.jobs.find((job) => job.id === body.id).status = "abandoned";
+    else if (path === "/api/training/disconnect") state.connected = false;
+    else if (path !== "/api/training/check") throw new Error("Unexpected training path " + path);
+    return response({ ok: true });
+  };
+  return fixture;
+}
+function trainingJob(id, summary, status, recommended = false) {
+  const metric = { n: 4, accuracy: .5, macro_f1: .5,
+    per_class: Object.fromEntries([0, 1, 2, 3, 4].map((label) => [String(label),
+      { n: label < 2 ? 2 : 0, recall: .5, precision: .5, f1: .5 }])) };
+  return { id, summary, status, phase: status === "ready" ? "complete" : "poll", created: 1,
+    error: null, kernel_url: "https://www.kaggle.com/code/synthetic-user/laya-test",
+    dataset_url: "https://www.kaggle.com/datasets/synthetic-user/laya-test",
+    evaluation: status === "ready" ? { baseline: { category: metric }, candidate: { category: metric },
+      recommended, trained_fields: ["category"], test_tickets: 4 } : null };
+}
+async function mountTraining() {
+  root = createRoot(document.querySelector("#root"));
+  await act(async () => root.render(React.createElement(TrainLaya)));
+}
+async function trainingUpload() {
+  const element = document.querySelector('input[type="file"]');
+  Object.defineProperty(element, "files", { value: [new File(["synthetic"], "tickets.csv")], configurable: true });
+  await act(async () => element.dispatchEvent(new Event("change", { bubbles: true })));
+}
+
+test("training requires upload consent and preserves request ID after a failed start", async () => {
+  const fixture = trainingFixture();
+  await mountTraining();
+  await trainingUpload();
+  assert.equal(button("Train").disabled, true);
+  assert.match(document.querySelector(".train-preview").textContent, /Keeps urgency, complaint, churn, refund on V5/);
+  assert.equal(document.querySelectorAll('input[type="checkbox"]').length, 1);
+  await click(document.querySelector('input[type="checkbox"]'));
+  assert.equal(button("Train").disabled, false);
+  fixture.failStart = true;
+  await click(button("Train"));
+  fixture.failStart = false;
+  await click(button("Train"));
+  const starts = calls.filter((call) => call.path === "/api/training/start");
+  assert.equal(starts.length, 2);
+  assert.equal(starts[0].body.request_id, starts[1].body.request_id);
+  assert.equal(starts[0].body.confirm_upload, true);
+  assert.equal(starts[0].headers["X-CSRF-Token"], "test-token");
+  assert.equal(document.querySelector(".train-preview"), null);
+  assert.match(document.querySelector('[role="status"]').textContent, /leave this page/);
+  assert.ok(calls.every((call) => call.path !== "/api/training/use"));
+});
+
+test("training permits only improved candidates and restores V5 explicitly", async () => {
+  const fixture = trainingFixture();
+  fixture.state.jobs = [trainingJob("no-improvement", fixture.summary, "ready"), trainingJob("improved", fixture.summary, "ready", true)];
+  await mountTraining();
+  const jobs = document.querySelectorAll(".train-job");
+  assert.equal(jobs[0].querySelector("button").disabled, true);
+  assert.equal(jobs[1].querySelector("button").disabled, false);
+  assert.match(jobs[1].textContent, /4 held-out decisions/);
+  await click(jobs[1].querySelector("button"));
+  assert.equal(fixture.state.active_model, "improved");
+  assert.equal(calls.find((call) => call.path === "/api/training/use").body.id, "improved");
+  await click(button("Restore V5"));
+  assert.equal(fixture.state.active_model, null);
+  assert.match(document.querySelector(".train-layout").textContent, /Laya V5 active/);
+});
+
+test("uncertain training can end tracking only after explicit remote-stop confirmation", async () => {
+  const fixture = trainingFixture();
+  fixture.state.jobs = [trainingJob("uncertain", fixture.summary, "uncertain")];
+  await mountTraining();
+  assert.equal(button("Disconnect").disabled, true);
+  const originalConfirm = window.confirm;
+  try {
+    window.confirm = () => false;
+    await click(button("End tracking"));
+    assert.ok(calls.every((call) => call.path !== "/api/training/abandon"));
+    window.confirm = (message) => { assert.match(message, /does not cancel GPU usage/); return true; };
+    await click(button("End tracking"));
+    assert.equal(fixture.state.jobs[0].status, "abandoned");
+    await click(button("Disconnect"));
+    assert.equal(fixture.state.connected, false);
+    assert.ok(calls.every((call) => call.path !== "/api/training/start"));
+  } finally { window.confirm = originalConfirm; }
 });

@@ -17,7 +17,9 @@ npm run typecheck
 python scripts/check_public.py
 ```
 
-The optional tiny-model test runs when local inference dependencies are installed. For frontend development, run `python backend/server.py` and `npm run dev` in separate terminals.
+The optional tiny-model and adapter tests run when local inference dependencies are installed. For frontend development, run `python backend/server.py` and `npm run dev` in separate terminals. Training development uses `service.server` instead, with an operator-initialized workspace; see [TRAINING.md](docs/TRAINING.md).
+
+Training/provider tests must use synthetic labels and mocked external calls. Preserve grouped splits, unknown labels, original-field decisions and the no-repeat GPU submission rule. Do not spend a user's quota or send datasets during automated tests. Hash-lock Kaggle dependencies in `service/kaggle.lock` and training dependencies in `training/requirements.lock`; never replace a GPU Torch installation with a CPU wheel during training setup.
 
 Keep changes within the supported [classification scope](SCOPE.md). Preserve engine isolation, revision checks and explicit external model calls. Rule changes can invalidate the pinned model rubric and require a corresponding model release. Adapter requirements and current connector limits are in [INTAKE.md](INTAKE.md).
 

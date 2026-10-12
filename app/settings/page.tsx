@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { request } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import TrainLaya from "../components/TrainLaya";
 
 type Settings = {
   connections: { zendesk: boolean; api: boolean; email: boolean };
@@ -13,7 +14,7 @@ type Settings = {
   members: { id: string; username: string; role: string; enabled: number }[];
   api_keys: { id: string; name: string; scopes: string[]; expires: number }[];
 };
-type Tab = "Connections" | "Sync" | "Team" | "API";
+type Tab = "Connections" | "Sync" | "Train" | "Team" | "API";
 
 export default function SettingsPage() {
   const auth = useAuth();
@@ -83,9 +84,10 @@ export default function SettingsPage() {
   return <main className="settings-shell">
     <header className="settings-heading"><div><Link href="/laya-ft" className="settings-back">← Inbox</Link><p className="eyebrow">Workspace</p><h1>Settings</h1><p>Connect sources. Keep your team in sync.</p></div></header>
     {!owner ? <p className="settings-empty">Workspace settings are managed by the owner in self-hosted mode.</p> : <>
-      <nav className="settings-tabs" aria-label="Settings">{(["Connections", "Sync", "Team", "API"] as Tab[]).map((name) => <button key={name} className={tab === name ? "active" : ""} onClick={() => setTab(name)}>{name}</button>)}</nav>
+      <nav className="settings-tabs" aria-label="Settings">{(["Connections", "Sync", "Train", "Team", "API"] as Tab[]).map((name) => <button key={name} className={tab === name ? "active" : ""} onClick={() => setTab(name)}>{name}</button>)}</nav>
       {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="settings-notice" role="status">{notice}</p>}
       {!data ? <p>Loading settings…</p> : <>
+        {tab === "Train" && <TrainLaya />}
         {tab === "Connections" && <div className="settings-grid">
           <section className="settings-card"><div className="settings-card-heading"><h2>Zendesk</h2><span className={data.connections.zendesk ? "connected-tag" : "quiet-tag"}>{data.connections.zendesk ? "Connected" : "Not connected"}</span></div>
             <form onSubmit={(e) => void saveZendesk(e)}><label>Subdomain<input required value={domain} maxLength={63} placeholder="your-team" onChange={(e) => setDomain(e.target.value.toLowerCase())} /></label><label>Client ID<input required value={client} maxLength={256} onChange={(e) => setClient(e.target.value)} /></label><label>Client secret <small>Optional for public clients</small><input type="password" autoComplete="new-password" value={secret} maxLength={4096} placeholder={data.zendesk.has_client_secret ? "Saved · leave blank to keep" : ""} onChange={(e) => setSecret(e.target.value)} /></label><button className="button secondary" disabled={busy}>Save</button></form>

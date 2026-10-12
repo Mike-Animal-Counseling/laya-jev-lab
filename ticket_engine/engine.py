@@ -63,12 +63,15 @@ class TicketEngine:
     """
 
     def __init__(self, provider: Provider, *, model_path=None, api_key=None,
-                 model=DEFAULT_MODEL, timeout=30):
+                 model=DEFAULT_MODEL, timeout=30, adapter_path=None):
         if provider not in ("laya", "jev"):
             raise EngineError("invalid_config", "provider must be laya or jev")
         self.provider = provider
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._agent = None
+        self._adapter = None
+        self._adapter_path = adapter_path
+        self._local_sha = EXPECTED['checkpoint_sha256']
         if provider == "laya":
             if model_path is None or api_key is not None or model != DEFAULT_MODEL or timeout != 30:
                 raise EngineError("invalid_config", "Laya requires model_path and accepts no API configuration")
@@ -77,7 +80,7 @@ class TicketEngine:
             except (TypeError, ValueError, OSError):
                 raise EngineError("invalid_config", "model_path must be a local directory path") from None
         else:
-            if model_path is not None:
+            if model_path is not None or adapter_path is not None:
                 raise EngineError("invalid_config", "Jev does not accept a local model path")
             validate_config(api_key, model, timeout)
             self._api_key = api_key
@@ -92,7 +95,12 @@ class TicketEngine:
         except (OSError, ValueError, TypeError, KeyError):
             raise EngineError("invalid_checkpoint", "Install the reviewed local checkpoint and verify its files") from None
         try:
-            self._agent = load_agent(self._model_path)
+            agent = load_agent(self._model_path)
+            if self._adapter_path is not None:
+                from .adaptation import DecisionAdapter
+                self._adapter = DecisionAdapter(agent, self._adapter_path)
+                self._local_sha = self._adapter.identity
+            self._agent = agent
         except ImportError:
             raise EngineError("missing_dependency", "Install the local inference dependencies: pip install '.[local]'") from None
         except Exception:
@@ -115,11 +123,12 @@ class TicketEngine:
             if self.provider == "laya":
                 self._prepare_local()
                 try:
-                    raw = self._agent.predict(deepcopy(state), deepcopy(QUESTIONS))
-                    raw = {**raw, "model": "laya-ticket-full-" + EXPECTED["checkpoint_sha256"][:12]}
+                    raw = (self._adapter.predict(self._agent, deepcopy(state), deepcopy(QUESTIONS)) if self._adapter
+                           else self._agent.predict(deepcopy(state), deepcopy(QUESTIONS)))
+                    raw = {**raw, "model": ("laya-ticket-adapted-" if self._adapter else "laya-ticket-full-") + self._local_sha[:12]}
                 except Exception:
                     raise EngineError("inference_failed", "Local classification failed") from None
-                checkpoint = EXPECTED["checkpoint_sha256"]
+                checkpoint = self._local_sha
             else:
                 raw = request_jev(state, deepcopy(QUESTIONS), api_key=self._api_key,
                                   model=self._model, timeout=self._timeout)

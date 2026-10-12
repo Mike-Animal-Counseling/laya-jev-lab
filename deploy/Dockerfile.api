@@ -4,9 +4,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     SERVICE_BIND=0.0.0.0 SERVICE_PORT=8780
 WORKDIR /app
 COPY deploy/requirements.lock /tmp/requirements.lock
+COPY service/kaggle.lock /tmp/kaggle.lock
 RUN python -m pip install --no-cache-dir --require-hashes \
     --index-url https://pypi.org/simple --extra-index-url https://download.pytorch.org/whl/cpu \
     -r /tmp/requirements.lock \
+    && python -m pip install --no-cache-dir --require-hashes --index-url https://pypi.org/simple -r /tmp/kaggle.lock \
     && useradd --uid 10001 --create-home app \
     && mkdir -p /app/var/cloud /app/models \
     && chown -R app:app /app/var /app/models
@@ -14,6 +16,8 @@ COPY --chown=app:app ticket_engine ./ticket_engine
 COPY --chown=app:app backend ./backend
 COPY --chown=app:app projects ./projects
 COPY --chown=app:app service ./service
+COPY --chown=app:app training ./training
+COPY --chown=app:app release-files.json ./
 COPY LICENSE NOTICE.md MODEL_CARD.md ./
 COPY licenses ./licenses
 USER app

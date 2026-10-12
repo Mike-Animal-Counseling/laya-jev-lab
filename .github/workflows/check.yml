@@ -17,11 +17,14 @@ jobs:
           node-version: '24'
       - run: python scripts/check_public.py --staged
       - run: python -m pip install --require-hashes -r service/requirements.lock
+      - run: python -m pip install --require-hashes --index-url https://pypi.org/simple -r service/kaggle.lock
       - run: python -m unittest discover -s backend -p 'test_*.py'
       - run: python -m unittest discover -s tests -p 'test_*.py'
       - run: python -m pip wheel --no-deps --wheel-dir dist .
       - run: python -m pip install pip-audit==2.10.1
       - run: python -m pip_audit -r service/requirements.lock --no-deps --disable-pip
+      - run: python -m pip_audit -r service/kaggle.lock --no-deps --disable-pip
+      - run: python -m pip_audit -r training/requirements.lock --no-deps --disable-pip
       - run: npm ci --ignore-scripts
       - run: npm run test:ui
       - run: npm run lint
