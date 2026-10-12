@@ -8,6 +8,11 @@ import sys
 from urllib.parse import urlsplit
 
 
+def status_name(value):
+    name = str(getattr(value, 'name', value)).lower().split('.')[-1]
+    return {'cancel_requested': 'running', 'cancel_acknowledged': 'cancelled', 'new_script': 'queued'}.get(name, name)
+
+
 def download_result(api, path, reference):
     import requests
     from kagglesdk.kernels.types.kernels_api_service import ApiListKernelSessionOutputRequest
@@ -58,7 +63,7 @@ def operation(action, path, reference):
             raise ValueError('Dataset upload failed')
         return {'ok': True}
     if action == 'dataset':
-        return {'status': str(api.dataset_status(reference)).lower().split('.')[-1]}
+        return {'status': status_name(api.dataset_status(reference))}
     if action == 'submit':
         result = api.kernels_push(path, timeout=14400, acc='NvidiaTeslaT4')
         if result is None or result.error:
@@ -66,7 +71,7 @@ def operation(action, path, reference):
         return {'ok': True}
     if action == 'status':
         result = api.kernels_status(reference)
-        return {'status': str(result.status).lower().split('.')[-1]}
+        return {'status': status_name(result.status)}
     if action == 'output':
         download_result(api, path, reference)
         return {'ok': True}

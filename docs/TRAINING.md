@@ -86,7 +86,7 @@ result = engine.classify("Please help fix the failed export.", subject="Export e
 print(result.to_dict())
 ```
 
-The adapter requires the exact reviewed V5. Loading checks rubric/base identities, hashes, tensor names, shapes and finite values. Only decision-layer safetensors are accepted, never pickle or replacement encoder/action tensors. Remove `adapter_path` to restore V5. Adapted `checkpoint_sha256` is SHA256 of the base tensor hash plus `:` plus the adapter tensor hash; model names begin `laya-ticket-adapted-`.
+The adapter requires the exact reviewed V5. Loading checks rubric/base identities, hashes, tensor names, shapes and finite values. Only decision-layer safetensors are accepted, never pickle or replacement encoder/action tensors. Remove `adapter_path` to restore V5. Adapted `checkpoint_sha256` is the SHA256 identity of the canonical adapter manifest, including base/tensor hashes, calibrated temperatures, trained fields and dataset provenance; model names begin `laya-ticket-adapted-`.
 
 The SDK has no Kaggle/service/UI dependency. Training tools belong to this source repository, not the SDK wheel. Local training with an existing Python 3.12+ Torch installation is also supported:
 

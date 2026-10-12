@@ -16,7 +16,7 @@ from cryptography.fernet import Fernet
 from service.app import Application
 from service.errors import ServiceError
 from service.kaggle_provider import KaggleProvider
-from service.kaggle_bridge import download_result, operation
+from service.kaggle_bridge import download_result, operation, status_name
 from service.store import Store
 from service.training import Training
 from ticket_engine.artifacts import EXPECTED, full_rubric_id
@@ -86,6 +86,14 @@ class DataTests(unittest.TestCase):
 
 
 class ProviderTests(unittest.TestCase):
+    @unittest.skipUnless(__import__('importlib').util.find_spec('kagglesdk'), 'optional Kaggle connector')
+    def test_official_task_states_include_cancellation_and_initial_script(self):
+        from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus
+        expected = {'QUEUED': 'queued', 'RUNNING': 'running', 'COMPLETE': 'complete', 'ERROR': 'error',
+                    'CANCEL_REQUESTED': 'running', 'CANCEL_ACKNOWLEDGED': 'cancelled', 'NEW_SCRIPT': 'queued'}
+        for value in KernelWorkerStatus:
+            self.assertEqual(status_name(value), expected[value.name])
+
     def test_credentials_are_explicit_not_ambient_or_command_line(self):
         provider = KaggleProvider()
         values = {'username': 'synthetic-user', 'api_token': 'synthetic-private-token-value'}
@@ -277,6 +285,20 @@ class JobTests(unittest.TestCase):
             with self.assertRaises(ServiceError) as caught:
                 self.training.preview(self.workspace, b'fixture', 'text/csv')
         self.assertNotIn('synthetic-private-message', str(caught.exception))
+
+    def test_calibration_tampering_blocks_enable_and_download(self):
+        self.provider.result = self.result_zip()
+        self.training.start_job(self.workspace, self.body, 'admin')
+        for _ in range(5):
+            self.step()
+        path = self.training.folder(self.workspace, self.identity) / 'adapter/adapter.json'
+        value = json.loads(path.read_text())
+        value['temperatures']['category'] = 3
+        path.write_text(json.dumps(value))
+        for operation in (self.training.download, lambda workspace, identity: self.training.use_model(workspace, identity, 'admin')):
+            with self.assertRaises(ServiceError):
+                operation(self.workspace, self.identity)
+        self.engines.prepare_adapter.assert_not_called()
 
     def test_foreign_or_inflated_results_fail_without_switching(self):
         for bad in (self.result_zip(wrong_dataset=True), self.result_zip(wrong_counts=True)):

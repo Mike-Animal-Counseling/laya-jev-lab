@@ -6,6 +6,8 @@
 
 Use the Python SDK without a UI, connect any helpdesk to the REST API, or run an optional inbox with authenticated workspaces. Your helpdesk keeps customer conversations and business actions.
 
+[中文使用与测试指南](docs/USAGE.zh-CN.md) covers setup, synthetic examples, intake, classification, comparison, REST, independent SDKs and training.
+
 **Adapt V5 to your labelled tickets:** connect your own Kaggle account once, import CSV/Excel in **Settings → Train**, and run a private GPU task from the app. Compare held-out results before **Use model**. Download the adapter for standalone SDK use, or restore V5 anytime. See the [training guide](docs/TRAINING.md), including real-account setup and validation limits.
 
 ![Inbox showing a synthetic billing ticket and Laya classification](docs/inbox.png)

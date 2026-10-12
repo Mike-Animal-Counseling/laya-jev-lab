@@ -6,6 +6,8 @@
 - Grouped train/validation/test splits, basic masking, missing-label handling, held-out improvement gate and explicit model selection or V5 restore per workspace.
 - Optional decision-layer adapters in the independent `LayaEngine`; original encoder, action head and unlabelled decision fields remain on V5. Jev stays independent.
 - Owner-only training routes, encrypted account tokens, bounded artifact downloads and submission retry protection. No creator Kaggle credential or customer training data is bundled.
+- Adapter identity pins calibration and trained-field metadata as well as weights; official Kaggle startup/cancellation states reconcile explicitly.
+- Chinese end-to-end usage/testing guide and a private synthetic example generator for intake, API and training previews.
 
 Actual V5 CPU training and adapter loading were validated with synthetic data. Kaggle GPU acceptance remains a real-account check; provider regression tests use mocks. The public V5 model asset is unchanged.
 

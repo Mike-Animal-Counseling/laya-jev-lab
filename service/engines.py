@@ -45,16 +45,16 @@ class Engines:
         message = ('Your Laya model ready' if adapted else 'Laya V5 ready') if self.local_status == 'ready' else 'Install and verify Laya V5'
         return {'laya-ft': {'status': self.local_status, 'message': message, 'model': identity, 'offline': True, 'artifact_version': 5}, 'jev': {'status': 'ready' if ready else 'unconfigured', 'message': 'Jev ready' if ready else 'Configure your workspace Jev key', 'model': DEFAULT_MODEL, 'offline': False}}
 
-    def prepare_adapter(self, workspace, path, expected_hash):
+    def prepare_adapter(self, workspace, path, expected_hash, expected_identity=None):
         if self.local_status != 'ready':
             raise ServiceError('Install and load the original V5 before enabling a candidate.', 409)
         from ticket_engine.adaptation import DecisionAdapter
         with self.adapter_lock, self.laya._lock:
-            key = (workspace, expected_hash)
+            key = (workspace, str(Path(path).resolve()), expected_identity or expected_hash)
             adapter = self.adapters.pop(key, None)
             if adapter is None:
                 adapter = DecisionAdapter(self.laya._agent, path)
-            if adapter.record['adapter_sha256'] != expected_hash:
+            if adapter.record['adapter_sha256'] != expected_hash or (expected_identity and adapter.identity != expected_identity):
                 raise ServiceError('Candidate model integrity failed.', 409)
             self.adapters[key] = adapter
             while len(self.adapters) > 4:
@@ -70,7 +70,7 @@ class Engines:
                 return self.laya.classify(ticket.get('message'), subject=ticket.get('subject', ''))
             from .workspace import request_id
             path = self.store.directory / 'training' / request_id(workspace) / request_id(settings['job_id']) / 'adapter'
-            adapter = self.prepare_adapter(workspace, path, settings['adapter_sha256'])
+            adapter = self.prepare_adapter(workspace, path, settings['adapter_sha256'], settings['identity'])
             previous = self.laya._adapter, self.laya._local_sha
             try:
                 self.laya._adapter, self.laya._local_sha = adapter, adapter.identity

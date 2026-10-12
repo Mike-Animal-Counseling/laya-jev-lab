@@ -12,6 +12,11 @@ PREFIXES = ('head.', 'type_emb.', 'scorer.')
 MAX_ADAPTER_BYTES = 128 * 1024 * 1024
 
 
+def adapter_identity(record):
+    """Pin weights, calibration, labelled fields and data provenance together."""
+    return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+
+
 def verify_adapter(directory):
     directory = Path(directory)
     for name in ('adapter.json', 'adapter.safetensors'):
@@ -56,7 +61,7 @@ class DecisionAdapter:
             raise ValueError('Adapter tensors do not match the V5 decision layers')
         self.base = {key: original[key].detach().clone() for key in expected}
         self.values = values
-        self.identity = hashlib.sha256((EXPECTED['checkpoint_sha256'] + ':' + self.record['adapter_sha256']).encode()).hexdigest()
+        self.identity = adapter_identity(self.record)
 
     def predict(self, agent, state, questions):
         # Unlabelled fields use the exact original decision weights and temperatures.

@@ -1,15 +1,13 @@
 """Durable workspace-owned Kaggle jobs. Uncertain submissions are never replayed."""
 from collections import Counter
 from io import BytesIO
-import hashlib
 import json
 from pathlib import Path
 import stat
 import threading
 import zipfile
 
-from ticket_engine.adaptation import MAX_ADAPTER_BYTES, verify_adapter
-from ticket_engine.artifacts import EXPECTED
+from ticket_engine.adaptation import MAX_ADAPTER_BYTES, adapter_identity, verify_adapter
 from ticket_engine.rules import QUESTIONS
 from training.bundle import build
 from training.data import DataError, encoded, parse_upload
@@ -230,7 +228,7 @@ class Training:
                   'recommended': recommendation(checked['baseline'], checked['candidate']),
                   'test_tickets': len(dataset['splits']['test']), 'trained_fields': fields}
         # Pin downloaded content independently of the manifest supplied by the remote job.
-        record.update(evaluation=result, adapter_sha256=adapter['adapter_sha256'], error=None, failures=0)
+        record.update(evaluation=result, adapter_sha256=adapter['adapter_sha256'], adapter_identity=adapter_identity(adapter), error=None, failures=0)
         (folder / 'evaluation.json').write_bytes(encoded(result))
 
     def download(self, workspace, identity):
@@ -240,7 +238,7 @@ class Training:
         record = json.loads(row['record'])
         folder = self.folder(workspace, row['id']) / 'adapter'
         value = verify_adapter(folder)
-        if value['adapter_sha256'] != record['adapter_sha256']:
+        if value['adapter_sha256'] != record['adapter_sha256'] or adapter_identity(value) != record['adapter_identity']:
             raise ServiceError('Candidate model changed.', 409)
         buffer = BytesIO()
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -327,13 +325,13 @@ class Training:
             raise ServiceError('Only an improved, verified candidate can be enabled.', 409)
         path = self.folder(workspace, identity) / 'adapter'
         value = verify_adapter(path)
-        if value['adapter_sha256'] != record['adapter_sha256']:
+        if value['adapter_sha256'] != record['adapter_sha256'] or adapter_identity(value) != record['adapter_identity']:
             raise ServiceError('Candidate model changed. Keep the current model.', 409)
-        self.engines.prepare_adapter(workspace, str(path), record['adapter_sha256'])
+        self.engines.prepare_adapter(workspace, str(path), record['adapter_sha256'], record['adapter_identity'])
         with self.store.transaction() as db:
             settings = self.store.settings(workspace, db)
             settings['laya_adapter'] = {'job_id': row['id'], 'adapter_sha256': record['adapter_sha256'],
-                'identity': hashlib.sha256((EXPECTED['checkpoint_sha256'] + ':' + record['adapter_sha256']).encode()).hexdigest()}
+                'identity': record['adapter_identity']}
             self.store.save_settings(workspace, settings, db)
             self.store.audit(db, workspace, actor, 'training_model_enabled', row['id'])
         return {'active_model': row['id']}

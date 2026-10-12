@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import Mock, patch
 
@@ -94,3 +95,29 @@ class AdapterTests(unittest.TestCase):
         path.write_text(json.dumps(value))
         with self.assertRaisesRegex(ValueError, 'metadata'):
             DecisionAdapter(self.agent, self.root)
+
+    def test_calibration_changes_identity_and_workspace_cache_does_not_reuse_other_jobs(self):
+        from service.engines import Engines
+        from service.errors import ServiceError
+        from ticket_engine.adaptation import adapter_identity
+        self.artifact()
+        first = self.root
+        second = self.root / 'second'
+        second.mkdir()
+        for name in ('adapter.json', 'adapter.safetensors'):
+            (second / name).write_bytes((first / name).read_bytes())
+        metadata = json.loads((second / 'adapter.json').read_text())
+        old_identity = adapter_identity(metadata)
+        metadata['temperatures']['category'] = 4
+        (second / 'adapter.json').write_text(json.dumps(metadata))
+        self.assertNotEqual(old_identity, adapter_identity(metadata))
+        engines = Engines(Mock())
+        engines.local_status = 'ready'
+        engines.laya = Mock(_agent=self.agent, _lock=threading.RLock())
+        a = engines.prepare_adapter('workspace', first, metadata['adapter_sha256'], old_identity)
+        b = engines.prepare_adapter('workspace', second, metadata['adapter_sha256'], adapter_identity(metadata))
+        self.assertIsNot(a, b)
+        self.assertEqual(a.record['temperatures']['category'], 2)
+        self.assertEqual(b.record['temperatures']['category'], 4)
+        with self.assertRaises(ServiceError):
+            engines.prepare_adapter('other-workspace', second, metadata['adapter_sha256'], old_identity)
