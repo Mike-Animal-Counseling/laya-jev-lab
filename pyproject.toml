@@ -13,9 +13,9 @@ license-files = ["LICENSE", "NOTICE.md", "licenses/mmbert-MIT.txt"]
 dependencies = []
 
 [project.optional-dependencies]
-laya = ["torch==2.14.0", "transformers==5.17.0", "safetensors==0.8.0", "huggingface_hub==1.32.0", "numpy==2.5.3"]
+laya = ["torch==2.14.0", "transformers==5.19.0", "safetensors==0.8.0", "huggingface_hub==1.32.0", "numpy==2.5.3"]
 jev = []
-local = ["torch==2.14.0", "transformers==5.17.0", "safetensors==0.8.0", "huggingface_hub==1.32.0", "numpy==2.5.3"]
+local = ["torch==2.14.0", "transformers==5.19.0", "safetensors==0.8.0", "huggingface_hub==1.32.0", "numpy==2.5.3"]
 demo = ["waitress==3.0.2", "openpyxl==3.1.5", "defusedxml==0.7.1"]
 
 [project.scripts]
