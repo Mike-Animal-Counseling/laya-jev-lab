@@ -10,7 +10,7 @@
     "build": "node scripts/next.cjs build",
     "start": "node scripts/next.cjs start --hostname 127.0.0.1 --port 5180",
     "lint": "eslint app next.config.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node node_modules/typescript-7/bin/tsc --noEmit",
     "format": "prettier --write app next.config.ts",
     "test:ui": "node --test tests/ui.test.cjs",
     "check:public": "python scripts/check_public.py"
@@ -29,10 +29,11 @@
     "jsdom": "30.1.2",
     "prettier": "3.9.9",
     "tailwindcss": "4.2.1",
-    "typescript": "5.9.3",
+    "typescript": "~6.0.3",
     "@eslint/js": "9.39.4",
     "typescript-eslint": "8.70.1",
-    "eslint-plugin-react-hooks": "7.1.1"
+    "eslint-plugin-react-hooks": "7.1.1",
+    "typescript-7": "npm:typescript@~7.0.2"
   },
   "type": "module"
 }

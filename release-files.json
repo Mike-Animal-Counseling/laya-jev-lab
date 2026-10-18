@@ -23,6 +23,7 @@
   "README.md",
   "SCOPE.md",
   "SECURITY.md",
+  "TOOLCHAIN.md",
   "app/TicketDesk.tsx",
   "app/compare/page.tsx",
   "app/components/AuthGate.tsx",
