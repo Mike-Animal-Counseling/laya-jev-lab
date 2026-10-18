@@ -1,5 +1,5 @@
 # CPU runtime; install PyTorch from its official CPU index first (see README).
-torch==2.14.0
+torch==2.14.1
 transformers==5.17.0
 safetensors==0.8.0
 huggingface_hub==1.32.0
