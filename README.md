@@ -21,7 +21,7 @@ Use the Python SDK without a UI, connect any helpdesk to the REST API, or run an
 | Any existing helpdesk | REST `/v1/classify` | Self-hosted service, scoped integration key |
 | A shared team inbox | Docker Compose | Operator-created workspace; HTTPS remotely |
 | Adapt Laya to your helpdesk | Settings → Train | Labelled tickets, your Kaggle token/GPU quota; verified V5 |
-| Single-user evaluation | Local demo | Python 3.12, Node.js 22.13+ |
+| Single-user evaluation | Local demo | Python 3.12, Node.js 22.19+ |
 
 The SDK is a separate Python package built from this repository. It has no frontend, database or credential discovery, and is not currently published to PyPI.
 
