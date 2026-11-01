@@ -4,7 +4,7 @@
 
 | 你想做什么 | 用哪部分 | 额外需要什么 |
 | --- | --- | --- |
-| 在电脑上体验所有网页功能 | 认证服务 + 网页 | Python 3.12、Node.js 22.13+、V5 权重 |
+| 在电脑上体验所有网页功能 | 认证服务 + 网页 | Python 3.12、Node.js 22.19+、V5 权重 |
 | 多人通过网址使用 | Docker 认证服务 | 服务器；远程使用需域名和 HTTPS |
 | 在自己的 Python 项目本地分类 | `LayaEngine` SDK | CPU 推理依赖、V5 权重；不用网页或 Kaggle |
 | 只使用 Jev | `JevEngine` SDK | 自己的 TypeSafe API Key；不用 Torch 或权重 |
