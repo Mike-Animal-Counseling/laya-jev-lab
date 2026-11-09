@@ -19,7 +19,7 @@ import {
   type Health,
   type ApiData,
 } from "./lib/tickets";
-import { request } from "./lib/api";
+import { ApiError, request } from "./lib/api";
 import { useAuth } from "./lib/auth";
 
 const api = (path: string, provider: Provider, body?: object) =>
@@ -78,6 +78,7 @@ export default function TicketDesk({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -192,6 +193,7 @@ export default function TicketDesk({
   const ticket = filtered.find((t) => t.id === selected) || filtered[0];
   const index = ticket ? filtered.indexOf(ticket) : -1;
   const analysis = ticket?.analysis;
+  const categoryScore = analysis?.probabilities?.[analysis.category];
   const stale = !!ticket && isStale(ticket);
   const chosenTeam = teamChoice.id === ticket?.id ? teamChoice.team : "";
   const locked = !!busy || batch || saving || refreshing || loading;
@@ -255,6 +257,22 @@ export default function TicketDesk({
       setLoading(false);
     }
   }
+  async function handleTicketMutationError(error: unknown) {
+    const message = error instanceof Error ? error.message : "Ticket update failed.";
+    if (error instanceof ApiError && error.status === 409) {
+      try {
+        const current = await api("tickets", provider);
+        setTickets(current.tickets);
+        setRubricId(current.rubric_id);
+        setTeamChoice({ id: "", team: "" });
+        setError(`${message} Latest tickets loaded.`);
+        return;
+      } catch {
+        // Keep the original write error if the recovery read fails.
+      }
+    }
+    setError(message);
+  }
   async function analyze(
     id: string,
     target: Provider = provider,
@@ -271,7 +289,7 @@ export default function TicketDesk({
       if (!inBatch && filter === "pending") setFilter("all");
       return true;
     } catch (e) {
-      setError((e as Error).message);
+      await handleTicketMutationError(e);
       return false;
     } finally {
       setBusy(null);
@@ -305,7 +323,7 @@ export default function TicketDesk({
       update(d.ticket);
       setNotice("Assigned");
     } catch (e) {
-      setError((e as Error).message);
+      await handleTicketMutationError(e);
     } finally {
       setSaving(false);
     }
@@ -355,7 +373,7 @@ export default function TicketDesk({
       chooseTicket(d.ticket.id);
       setNotice("Ticket reopened");
     } catch (e) {
-      setError((e as Error).message);
+      await handleTicketMutationError(e);
     } finally {
       setSaving(false);
     }
@@ -405,7 +423,7 @@ export default function TicketDesk({
       update(data.ticket);
       setNotice("Ticket marked done");
     } catch (e) {
-      setError((e as Error).message);
+      await handleTicketMutationError(e);
     } finally {
       setSaving(false);
     }
@@ -415,7 +433,7 @@ export default function TicketDesk({
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell ticket-desk">
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
@@ -542,7 +560,7 @@ export default function TicketDesk({
               </span>
             </div>
             <p className="page-description">
-              Less sorting. More supporting.
+              Review customer messages and route tickets.
             </p>
           </div>
           <div className="header-actions">
@@ -898,56 +916,60 @@ export default function TicketDesk({
             ) : (
               <div className="ticket-canvas workspace-scroll">
                 <article className="reading-pane">
-                  <div className="reading-meta">
-                    <span>{ticket.id}</span>
-                    <span>
-                      <Icon name="mail" size={13} />
-                      {ticket.channel || "Message"}
-                    </span>
-                    <span className={`ticket-status ${ticket.status}`}>
-                      {ticket.status === "done" ? "Done" : ticket.status === "assigned" ? "Assigned" : "Open"}
-                    </span>
-                  </div>
-                  <h2 className="subject">{ticket.subject}</h2>
-                  <div className="customer">
-                    <span className="avatar large">
-                      {ticket.customer?.slice(0, 1) || "C"}
-                    </span>
-                    <div>
-                      <strong>{ticket.customer || "Customer"}</strong>
-                      <span>{ticket.company || "Customer"}</span>
+                  <div className="case-heading">
+                    <div className="reading-meta">
+                      <span>{ticket.id}</span>
+                      <span>
+                        <Icon name="mail" size={13} />
+                        {ticket.channel || "Message"}
+                      </span>
+                      <span className={`ticket-status ${ticket.status}`}>
+                        {ticket.status === "done" ? "Done" : ticket.status === "assigned" ? "Assigned" : "Open"}
+                      </span>
                     </div>
-                    <time>{ticket.time}</time>
+                    <h2 className="subject">{ticket.subject}</h2>
+                    <div className="customer">
+                      <span className="avatar large">
+                        {ticket.customer?.slice(0, 1) || "C"}
+                      </span>
+                      <div>
+                        <strong>{ticket.customer || "Customer"}</strong>
+                        <span>{ticket.company || "Customer"}</span>
+                      </div>
+                      <time>{ticket.time}</time>
+                    </div>
                   </div>
-                  <div className="message-heading">
-                    <span>Message</span>
-                    <span className="message-line" />
-                  </div>
-                  <div className="customer-message">
-                    {expandedMessage === ticket.id ||
-                    ticket.message.length <= 360
-                      ? ticket.message
-                      : `${ticket.message.slice(0, 360)}…`}
-                  </div>
-                  {ticket.message.length > 360 && (
-                    <button
-                      className="expand-message"
-                      aria-expanded={expandedMessage === ticket.id}
-                      onClick={() =>
-                        setExpandedMessage(
-                          expandedMessage === ticket.id ? "" : ticket.id,
-                        )
-                      }
-                    >
-                      {expandedMessage === ticket.id
-                        ? "Show less"
-                        : "Read more"}
-                      <Icon name="chevron" size={14} />
-                    </button>
-                  )}
-                  <div className="reading-note">
-                    <Icon name="document" size={15} />
-                    <span>Analysis uses the subject and message.</span>
+                  <div className="case-message">
+                    <div className="message-heading">
+                      <span>Customer message</span>
+                      <span className="message-line" />
+                    </div>
+                    <div className="customer-message" id="customer-message" ref={messageRef} tabIndex={-1}>
+                      {expandedMessage === ticket.id ||
+                      ticket.message.length <= 360
+                        ? ticket.message
+                        : `${ticket.message.slice(0, 360)}…`}
+                    </div>
+                    {ticket.message.length > 360 && (
+                      <button
+                        className="expand-message"
+                        aria-expanded={expandedMessage === ticket.id}
+                        onClick={() =>
+                          setExpandedMessage(
+                            expandedMessage === ticket.id ? "" : ticket.id,
+                          )
+                        }
+                      >
+                        {expandedMessage === ticket.id
+                          ? "Show less"
+                          : "Read more"}
+                        <Icon name="chevron" size={14} />
+                      </button>
+                    )}
+                    <div className="reading-note">
+                      <Icon name="document" size={15} />
+                      <span>Analysis uses the subject and message.</span>
+                    </div>
                   </div>
                   <details
                     key={`history-${ticket.id}`}
@@ -981,255 +1003,271 @@ export default function TicketDesk({
                       )}
                     </ol>
                   </details>
-                </article>
-                <aside className="analysis-panel">
-                  <div className="analysis-heading">
-                    <h3>
-                      <Icon name="sparkles" size={17} />
-                      Insights
-                    </h3>
-                    <span className="model-badge">
-                      <i />
-                      {names[provider]}
-                    </span>
-                  </div>
-                  {busy?.id === ticket.id && (
-                    <div className="processing-note" role="status">
-                      <Icon name="refresh" size={16} className="spin" />
-                      {names[busy.provider]} is analyzing…
+                  <aside className="analysis-panel" aria-label="Model analysis">
+                    <div className="analysis-heading">
+                      <h3>
+                        AI analysis
+                      </h3>
+                      <span className="model-badge">
+                        <i />
+                        {names[provider]}
+                      </span>
                     </div>
-                  )}
-                  {analysis ? (
-                    <>
-                      <section className="suggestion">
-                        <div className="eyebrow">
-                          {ticket.status === "assigned"
-                            ? "Assigned to"
-                            : "Suggested team"}
-                        </div>
-                        <div className="suggestion-heading">
-                          <h2>{teamLabel(ticket.team || analysis.suggested_team)}</h2>
-                          <span className="completion-icon">
-                            <Icon
-                              name={
-                                ticket.status === "assigned" ? "check" : "arrow"
-                              }
-                              size={20}
-                            />
-                          </span>
-                        </div>
-                        <p className="suggestion-context">
-                          {labels[analysis.category] || analysis.category_label}
-                        </p>
-                        <div className="decision-summary" aria-label="Key signals">
-                          <span
-                            className={`decision-priority ${analysis.priority}`}
-                          >
-                            {analysis.priority} ·{" "}
-                            {priorities[analysis.priority]}
-                          </span>
-                          {analysis.complaint >= 0.5 && <span>Complaint</span>}
-                          {analysis.churn >= 0.5 && <span>Churn risk</span>}
-                          {analysis.refund >= 0.5 && <span>Refund</span>}
-                        </div>
-                        <div className="confidence-row">
-                          <span>Confidence</span>
-                          <strong>{pct(analysis.confidence)}</strong>
-                        </div>
-                        <div className="confidence-track">
-                          <i style={{ width: pct(analysis.confidence) }} />
-                        </div>
-                        {stale && (
-                          <p className="confidence-note">
-                            Outdated result. Analyze again.
-                          </p>
-                        )}
-                        {!stale && analysis.confidence < 0.65 && (
-                          <p className="confidence-note">
-                            Low confidence. Choose a team.
-                          </p>
-                        )}
-                        {!stale && analysis.churn >= 0.5 && (
-                          <p className="confidence-note">
-                            At risk of leaving. Follow up soon.
-                          </p>
-                        )}
-                        {!["assigned", "done"].includes(ticket.status) && (
-                          <div className="assignment">
-                            <label className="sr-only" htmlFor="team-choice">
-                              Team
-                            </label>
-                            <select
-                              id="team-choice"
-                              value={chosenTeam}
-                              disabled={writeLocked || stale}
-                              onChange={(e) =>
-                                setTeamChoice({
-                                  id: ticket.id,
-                                  team: e.target.value,
-                                })
-                              }
-                            >
-                              <option value="">
-                                {analysis.confidence < 0.65
-                                  ? "Choose a team"
-                                  : `Suggested: ${teamLabel(analysis.suggested_team)}`}
-                              </option>
-                              {teams.map((team) => (
-                                <option key={team} value={team}>{teamLabel(team)}</option>
-                              ))}
-                            </select>
-                            <button
-                              className="button primary full-width"
-                              disabled={
-                                writeLocked ||
-                                stale ||
-                                (analysis.confidence < 0.65 && !chosenTeam)
-                              }
-                              onClick={() => void assign()}
-                            >
-                              <Icon name="check" size={17} />
-                              {saving ? "Assigning…" : "Assign"}
-                            </button>
+                    {busy?.id === ticket.id && (
+                      <div className="processing-note" role="status">
+                        <Icon name="refresh" size={16} className="spin" />
+                        {names[busy.provider]} is analyzing…
+                      </div>
+                    )}
+                    {analysis ? (
+                      <>
+                        <section className="suggestion">
+                          <div className="eyebrow">
+                            {ticket.team ? "Assigned to" : "Suggested team"}
                           </div>
-                        )}
-                        {["assigned", "done"].includes(ticket.status) && (
+                          <div className="suggestion-heading">
+                            <h2>{teamLabel(ticket.team || analysis.suggested_team)}</h2>
+                            <span className="completion-icon">
+                              <Icon
+                                name={
+                                  ticket.status === "assigned" ? "check" : "arrow"
+                                }
+                                size={20}
+                              />
+                            </span>
+                          </div>
+                          <dl className="routing-trace">
+                            <div>
+                              <dt>Model classification</dt>
+                              <dd>
+                                {labels[analysis.category] || analysis.category_label}
+                                {typeof categoryScore === "number" && <small>{pct(categoryScore)} category score</small>}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Routing rule</dt>
+                              <dd>Send this category to {teamLabel(analysis.suggested_team)}.</dd>
+                            </div>
+                            <div>
+                              <dt>Original input</dt>
+                              <dd>
+                                <button
+                                  className="review-source"
+                                  type="button"
+                                  aria-controls="customer-message"
+                                  onClick={() => {
+                                    setExpandedMessage(ticket.id);
+                                    messageRef.current?.focus();
+                                  }}
+                                >
+                                  Review customer message
+                                </button>
+                              </dd>
+                            </div>
+                          </dl>
+                          <div className="decision-summary" aria-label="Key signals">
+                            <span
+                              className={`decision-priority ${analysis.priority}`}
+                            >
+                              {analysis.priority} ·{" "}
+                              {priorities[analysis.priority]}
+                            </span>
+                            {analysis.complaint >= 0.5 && <span>Complaint</span>}
+                            {analysis.churn >= 0.5 && <span>Churn risk</span>}
+                            {analysis.refund >= 0.5 && <span>Refund</span>}
+                          </div>
+                          <div className="confidence-row">
+                            <span>Confidence</span>
+                            <strong>{pct(analysis.confidence)}</strong>
+                          </div>
+                          <div className="confidence-track">
+                            <i style={{ width: pct(analysis.confidence) }} />
+                          </div>
+                          {stale && (
+                            <p className="confidence-note">
+                              Outdated result. Analyze again.
+                            </p>
+                          )}
+                          {!stale && analysis.confidence < 0.65 && (
+                            <p className="confidence-note">
+                              Low confidence. Choose a team.
+                            </p>
+                          )}
+                          {!stale && analysis.churn >= 0.5 && (
+                            <p className="confidence-note">
+                              At risk of leaving. Follow up soon.
+                            </p>
+                          )}
+                          {!["assigned", "done"].includes(ticket.status) && (
+                            <div className="assignment">
+                              <label className="sr-only" htmlFor="team-choice">
+                                Team
+                              </label>
+                              <select
+                                id="team-choice"
+                                value={chosenTeam}
+                                disabled={writeLocked || stale}
+                                onChange={(e) =>
+                                  setTeamChoice({
+                                    id: ticket.id,
+                                    team: e.target.value,
+                                  })
+                                }
+                              >
+                                <option value="">
+                                  {analysis.confidence < 0.65
+                                    ? "Choose a team"
+                                    : `Suggested: ${teamLabel(analysis.suggested_team)}`}
+                                </option>
+                                {teams.map((team) => (
+                                  <option key={team} value={team}>{teamLabel(team)}</option>
+                                ))}
+                              </select>
+                              <button
+                                className="button primary full-width"
+                                disabled={
+                                  writeLocked ||
+                                  stale ||
+                                  (analysis.confidence < 0.65 && !chosenTeam)
+                                }
+                                onClick={() => void assign()}
+                              >
+                                <Icon name="check" size={17} />
+                                {saving ? "Assigning…" : "Assign"}
+                              </button>
+                            </div>
+                          )}
+                          {["assigned", "done"].includes(ticket.status) && (
+                            <button
+                              className="button secondary full-width reopen-button"
+                              disabled={writeLocked}
+                              onClick={() => void reopen()}
+                            >
+                              <Icon name="refresh" size={14} />
+                              Reopen
+                            </button>
+                          )}
+                        </section>
+                        <details
+                          key={`analysis-${ticket.id}-${provider}`}
+                          className="analysis-details"
+                        >
+                          <summary>
+                            <div>
+                              <strong>Details</strong>
+                              <small>Scores and model details</small>
+                            </div>
+                            <Icon name="chevron" size={16} />
+                          </summary>
+                          <section
+                            className={`priority-card ${analysis.priority}`}
+                          >
+                            <span className="priority-icon">
+                              <Icon name="flag" size={19} />
+                            </span>
+                            <div>
+                              <small>Priority</small>
+                              <strong>
+                                {priorities[analysis.priority] ||
+                                  analysis.priority}
+                              </strong>
+                            </div>
+                            <b>{analysis.priority}</b>
+                          </section>
+                          <section className="signals">
+                            <div className="section-heading">
+                              <h3>Signals</h3>
+                              <span>Scores</span>
+                            </div>
+                            <Signal label="Complaint" value={analysis.complaint} />
+                            <Signal label="Churn risk" value={analysis.churn} />
+                            <Signal label="Refund" value={analysis.refund} />
+                          </section>
+                          <details className="disclosure">
+                            <summary>
+                              Category scores
+                              <Icon name="chevron" size={13} />
+                            </summary>
+                            <div className="disclosure-body">
+                              {Object.entries(analysis.probabilities)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([label, value]) => (
+                                  <div className="category-score" key={label}>
+                                    <div>
+                                      <span>{labels[label] || label}</span>
+                                      <strong>{pct(value)}</strong>
+                                    </div>
+                                    <div className="distribution-track">
+                                      <i style={{ width: pct(value) }} />
+                                    </div>
+                                  </div>
+                                ))}
+                              <p className="technical-note">
+                                Model: {analysis.model}
+                                <br />
+                                Time: {(analysis.elapsed_ms / 1000).toFixed(1)} s
+                                · {analysis.input_tokens} tokens
+                              </p>
+                            </div>
+                          </details>
+                        </details>
+                        {!["assigned", "done"].includes(ticket.status) && (
                           <button
-                            className="button secondary full-width reopen-button"
-                            disabled={writeLocked}
-                            onClick={() => void reopen()}
+                            className="reanalyze"
+                            disabled={
+                              writeLocked || modelHealth(provider).status !== "ready"
+                            }
+                            onClick={() => void analyze(ticket.id)}
                           >
                             <Icon name="refresh" size={14} />
-                            Reopen
+                            Analyze again
                           </button>
                         )}
-                      </section>
-                      <details
-                        key={`analysis-${ticket.id}-${provider}`}
-                        className="analysis-details"
-                      >
-                        <summary>
-                          <div>
-                            <strong>Details</strong>
-                            <small>Scores and model details</small>
-                          </div>
-                          <Icon name="chevron" size={16} />
-                        </summary>
-                        <section
-                          className={`priority-card ${analysis.priority}`}
-                        >
-                          <span className="priority-icon">
-                            <Icon name="flag" size={19} />
-                          </span>
-                          <div>
-                            <small>Priority</small>
-                            <strong>
-                              {priorities[analysis.priority] ||
-                                analysis.priority}
-                            </strong>
-                          </div>
-                          <b>{analysis.priority}</b>
-                        </section>
-                        <section className="signals">
-                          <div className="section-heading">
-                            <h3>Signals</h3>
-                            <span>Scores</span>
-                          </div>
-                          <Signal label="Complaint" value={analysis.complaint} />
-                          <Signal label="Churn risk" value={analysis.churn} />
-                          <Signal label="Refund" value={analysis.refund} />
-                        </section>
-                        <details className="disclosure">
-                          <summary>
-                            Category scores
-                            <Icon name="chevron" size={13} />
-                          </summary>
-                          <div className="disclosure-body">
-                            {Object.entries(analysis.probabilities)
-                              .sort((a, b) => b[1] - a[1])
-                              .map(([label, value]) => (
-                                <div className="category-score" key={label}>
-                                  <div>
-                                    <span>{labels[label] || label}</span>
-                                    <strong>{pct(value)}</strong>
-                                  </div>
-                                  <div className="distribution-track">
-                                    <i style={{ width: pct(value) }} />
-                                  </div>
-                                </div>
-                              ))}
-                            <p className="technical-note">
-                              Model: {analysis.model}
-                              <br />
-                              Time: {(analysis.elapsed_ms / 1000).toFixed(1)} s
-                              · {analysis.input_tokens} tokens
-                            </p>
-                          </div>
-                        </details>
-                      </details>
-                      {!["assigned", "done"].includes(ticket.status) && (
+                      </>
+                    ) : (
+                      <section className="analysis-empty">
+                        <h3>Analysis pending</h3>
+                        <p>Analyze this ticket to suggest a team and flag issues for review.</p>
                         <button
-                          className="reanalyze"
+                          className="button primary full-width"
                           disabled={
-                            writeLocked || modelHealth(provider).status !== "ready"
+                            writeLocked || ticket.status === "done" || modelHealth(provider).status !== "ready"
                           }
                           onClick={() => void analyze(ticket.id)}
                         >
-                          <Icon name="refresh" size={14} />
-                          Analyze again
+                          <Icon name="sparkles" size={17} />
+                          {busy?.id === ticket.id
+                            ? "Analyzing…"
+                            : `Analyze`}
                         </button>
-                      )}
-                    </>
-                  ) : (
-                    <section className="analysis-empty">
-                      <div className="analysis-empty-art">
-                        <Icon name="sparkles" size={32} />
-                      </div>
-                      <h3>Ready when you are.</h3>
-                      <p>
-                        Find the right team
-                        <br />
-                        and spot what needs attention.
-                      </p>
-                      <button
-                        className="button primary full-width"
-                        disabled={
-                          writeLocked || ticket.status === "done" || modelHealth(provider).status !== "ready"
-                        }
-                        onClick={() => void analyze(ticket.id)}
-                      >
-                        <Icon name="sparkles" size={17} />
-                        {busy?.id === ticket.id
-                          ? "Analyzing…"
-                          : `Analyze`}
-                      </button>
-                      <small>
-                        {provider === "jev"
-                          ? "Sends this ticket to Jev · API fees apply"
-                          : "Private, local inference · No API fees"}
-                      </small>
-                    </section>
-                  )}
-                  <button
-                    className="compare-link"
-                    onClick={() => setDetailTab("compare")}
-                  >
-                    <span className="compare-link-icon">
-                      <Icon name="compare" size={20} />
-                    </span>
-                    <span>
-                      <strong>Compare models</strong>
-                      <small>Laya & Jev, side by side</small>
-                    </span>
-                    <Icon name="chevron" size={14} />
-                  </button>
-                  <p className="analysis-footer">
-                    <Icon name="user" size={13} />
-                    Suggestions, with you in control.
-                    <br />
-                    Confidence is not accuracy.
-                  </p>
-                </aside>
+                        <small>
+                          {provider === "jev"
+                            ? "Sends this ticket to Jev · API fees apply"
+                            : "Private, local inference · No API fees"}
+                        </small>
+                      </section>
+                    )}
+                    <button
+                      className="compare-link"
+                      onClick={() => setDetailTab("compare")}
+                    >
+                      <span className="compare-link-icon">
+                        <Icon name="compare" size={20} />
+                      </span>
+                      <span>
+                        <strong>Compare models</strong>
+                        <small>Laya & Jev, side by side</small>
+                      </span>
+                      <Icon name="chevron" size={14} />
+                    </button>
+                    <p className="analysis-footer">
+                      <Icon name="user" size={13} />
+                      Suggestions, with you in control.
+                      <br />
+                      Confidence is not accuracy.
+                    </p>
+                  </aside>
+                </article>
               </div>
             )}
           </section>

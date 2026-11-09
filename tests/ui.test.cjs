@@ -206,6 +206,8 @@ beforeEach(() => {
       return response({ ticket: projected(t, p) }, 201);
     }
     const t = tickets.find((t) => t.id === body?.id);
+    if (t && body.expected_revision !== undefined && body.expected_revision !== t.runs[p].revision)
+      return response({ error: "Ticket changed. Refresh before trying again." }, 409);
     if (parsed.pathname === "/api/analyze") {
       t.runs[p].analysis = analysis(p);
       t.runs[p].analysis.suggested_team = p === "jev" ? "技术支持" : "财务支持";
@@ -231,12 +233,28 @@ afterEach(async () => {
   document.querySelector("#root").replaceChildren();
 });
 
+test("a stale assignment refreshes the ticket without replaying the write", async () => {
+  await mount();
+  tickets[0].runs["laya-ft"].revision++;
+  tickets[0].runs["laya-ft"].status = "assigned";
+  tickets[0].runs["laya-ft"].team = "技术支持";
+  const readsBefore = calls.filter((call) => call.path === "/api/tickets" && !call.body).length;
+  await click(button("Assign"));
+  assert.equal(calls.filter((call) => call.path === "/api/assign").length, 1);
+  assert.equal(calls.filter((call) => call.path === "/api/tickets" && !call.body).length, readsBefore + 1);
+  assert.match(document.body.textContent, /Latest tickets loaded/);
+  assert.match(document.querySelector(".suggestion-heading").textContent, /Technical/);
+});
+
 test("important decisions visible; history and detailed scores expand on demand", async () => {
   await mount();
   assert.match(
     document.querySelector(".decision-summary").textContent,
     /P1.*Churn risk.*Refund/,
   );
+  const trace = document.querySelector(".routing-trace").textContent;
+  assert.match(trace, /Model classification\s*Billing\s*96% category score/);
+  assert.match(trace, /Routing rule\s*Send this category to Billing/);
   assert.equal(document.querySelector(".analysis-details").open, false);
   assert.equal(document.querySelector(".history-section").open, false);
   assert.ok(button("Assign"));
@@ -246,11 +264,12 @@ test("important decisions visible; history and detailed scores expand on demand"
   assert.equal(document.querySelectorAll(".signal").length, 3);
   const preview = document.querySelector(".customer-message").textContent;
   assert.ok(preview.length < tickets[0].message.length);
-  await click(button("Read more"));
+  await click(button("Review customer message"));
   assert.equal(
     document.querySelector(".customer-message").textContent,
     tickets[0].message,
   );
+  assert.equal(document.activeElement.id, "customer-message");
   await click(button("Show less"));
   assert.equal(
     document.querySelector(".customer-message").textContent,

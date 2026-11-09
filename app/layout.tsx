@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./inbox.css";
 import "./workspace.css";
+import "./editorial-desk.css";
 import AuthGate from "./components/AuthGate";
 export const metadata: Metadata = {
   title: "Model Lab · Inbox",
