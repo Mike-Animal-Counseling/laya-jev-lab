@@ -118,6 +118,7 @@ Open **http://127.0.0.1:5180/laya-ft**. The loopback-only demo starts with eight
 
 - **Billing, Technical, Sales, Accounts, General**, plus priority, complaint, churn and refund signals.
 - English **Inbox, Flag, Assigned, Done**, review, comparison and export.
+- The review panel shows the model's category score, the workspace's routing rule and a link to the original message. If a write conflicts with a newer revision, the inbox reloads the ticket for review before the next submission.
 - **Excel, CSV, email files, REST, IMAP and Zendesk** intake with validation and duplicate checks. [Intake guide](INTAKE.md).
 - Workspace roles, scoped keys, revision checks and explicit model calls. Imports and scheduled sync never invoke AI.
 - Workspace-owned Laya adaptation, private Kaggle tasks, held-out comparison and downloadable adapters. Unlabelled fields keep V5 decisions.
