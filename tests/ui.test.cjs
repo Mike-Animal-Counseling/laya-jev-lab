@@ -44,6 +44,8 @@ Module._load = function (name, ...args) {
       default: ({ children, ...props }) =>
         React.createElement("a", props, children),
     };
+  if (name === "next/navigation")
+    return { useSearchParams: () => new URL(window.location.href).searchParams };
   return originalLoad.call(this, name, ...args);
 };
 for (const extension of [".tsx", ".ts"]) {
@@ -63,6 +65,8 @@ for (const extension of [".tsx", ".ts"]) {
 }
 const TicketDesk = require("../app/TicketDesk.tsx").default;
 const TrainLaya = require("../app/components/TrainLaya.tsx").default;
+const SettingsPage = require("../app/settings/page.tsx").default;
+const { AuthContext } = require("../app/lib/auth.tsx");
 let root, tickets, calls, failRead, importErrors, failImport, connections;
 const clone = (value) => structuredClone(value);
 function analysis(provider) {
@@ -535,6 +539,41 @@ async function trainingUpload() {
   Object.defineProperty(element, "files", { value: [new File(["synthetic"], "tickets.csv")], configurable: true });
   await act(async () => element.dispatchEvent(new Event("change", { bubbles: true })));
 }
+
+test("the training URL opens Train for owners and keeps it hidden from members", async () => {
+  trainingFixture();
+  const fallback = global.fetch;
+  global.fetch = async (url, options) => {
+    if (new URL(url, window.location.href).pathname === "/api/settings") {
+      return response({
+        zendesk: { subdomain: "", client_id: "" },
+        sync: { enabled: false, interval: 600 },
+      });
+    }
+    return fallback(url, options);
+  };
+  const previousUrl = window.location.href;
+  window.history.replaceState(null, "", "/settings?tab=train");
+  root = createRoot(document.querySelector("#root"));
+  const renderSettings = (role) =>
+    act(async () =>
+      root.render(React.createElement(AuthContext.Provider, {
+        value: { mode: "cloud", authenticated: true, user: { role } },
+      }, React.createElement(SettingsPage))),
+    );
+  try {
+    await renderSettings("member");
+    assert.equal(document.querySelector(".train-layout"), null);
+    assert.ok(calls.every((call) => call.path !== "/api/training"));
+    await renderSettings("owner");
+    assert.equal(document.querySelector('.settings-tabs [aria-current="page"]').textContent, "Train");
+    assert.match(document.querySelector(".train-layout").textContent, /Train Laya/);
+    assert.ok(calls.some((call) => call.path === "/api/training"));
+    assert.ok(calls.every((call) => call.path !== "/api/training/start"));
+  } finally {
+    window.history.replaceState(null, "", previousUrl);
+  }
+});
 
 test("training requires upload consent and preserves request ID after a failed start", async () => {
   const fixture = trainingFixture();
