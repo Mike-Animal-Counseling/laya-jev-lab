@@ -1,89 +1,27 @@
-# Laya × Jev · Ticket Classification
+<div align="center">
+  <img src="public/favicon.svg" width="64" height="64" alt="Laya × Jev Lab project mark">
+  <h1>Laya × Jev Lab</h1>
+  <p><strong>Classify support tickets. Train Laya on your own labelled examples.</strong></p>
+  <p><a href="#train-laya"><strong>Train Laya</strong></a> · <a href="#quickstart">Quickstart</a> · <a href="docs/API.md">REST API</a> · <a href="docs/USAGE.zh-CN.md">中文</a></p>
+</div>
 
-[![Checks](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml/badge.svg)](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml) · [Apache-2.0](LICENSE) · [Model download](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/tag/v0.1.0)
+[![Checks](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml/badge.svg)](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml) · [Apache-2.0](LICENSE) · [Laya V5 weights](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/tag/v0.1.0)
 
-**Drop structured SaaS ticket classification into your helpdesk. Run trained Laya V5 locally, call Jev, or compare both under one rubric.**
+Run **Laya V5** locally on CPU, call **Jev** with your TypeSafe key, or compare both on the same ticket. The engines return a category, priority and complaint, churn and refund signals. Use the Python SDK, connect an existing helpdesk over REST, or run the shared inbox.
 
-Use the Python SDK without a UI, connect any helpdesk to the REST API, or run an optional inbox with authenticated workspaces. Your helpdesk keeps customer conversations and business actions.
+## Train Laya
 
-[中文使用与测试指南](docs/USAGE.zh-CN.md) covers setup, synthetic examples, intake, classification, comparison, REST, independent SDKs and training.
+Start the [authenticated workspace](#quickstart) and sign in as its owner. Click **Train Laya** in the workspace header, or [open training on your local instance](http://127.0.0.1:5180/settings?tab=train).
 
-**Adapt V5 to your labelled tickets:** connect your own Kaggle account once, import CSV/Excel in **Settings → Train**, and run a private GPU task from the app. Compare held-out results before **Use model**. Download the adapter for standalone SDK use, or restore V5 anytime. See the [training guide](docs/TRAINING.md), including real-account setup and validation limits.
+1. **Connect Kaggle once.** Use your own account, API token and GPU quota.
+2. **Preview your labelled data.** Start with the in-app CSV template or import an `.xlsx` file. Review category coverage, remove sensitive information and confirm the upload.
+3. **Click Train.** The app submits a private GPU job to your Kaggle account and retrieves the result. No notebook editing or manual file transfer is required.
 
-![Inbox showing a synthetic billing ticket and Laya classification](docs/inbox.png)
+The job adapts Laya V5's decision layers. Review the held-out comparison before activating the candidate. You can download the adapter for SDK use or restore V5 at any time. Local CPU adaptation has been tested with synthetic data. Live Kaggle GPU acceptance is still pending. See the [training guide](docs/TRAINING.md) for data requirements and the local training option.
 
-## Choose your integration
+## Quickstart
 
-| Use case | Entry point | Requirements |
-| --- | --- | --- |
-| Local Laya in a Python app | `LayaEngine` | Python 3.12, CPU runtime, reviewed V5 weights |
-| Jev in a Python app | `JevEngine` | Python 3.12, your TypeSafe key; no Torch |
-| Any existing helpdesk | REST `/v1/classify` | Self-hosted service, scoped integration key |
-| A shared team inbox | Docker Compose | Operator-created workspace; HTTPS remotely |
-| Adapt Laya to your helpdesk | Settings → Train | Labelled tickets, your Kaggle token/GPU quota; verified V5 |
-| Single-user evaluation | Local demo | Python 3.12, Node.js 22.19+ |
-
-The SDK is a separate Python package built from this repository. It has no frontend, database or credential discovery, and is not currently published to PyPI.
-
-## Independent engines
-
-Install from a checkout:
-
-```sh
-python -m pip install .
-```
-
-Jev needs only the base package:
-
-```python
-from ticket_engine import JevEngine
-
-# Retrieve this from your application's secret store.
-engine = JevEngine(api_key=your_api_key)
-result = engine.classify("Please explain the team plan.", subject="Pricing")
-print(result.to_dict())
-```
-
-For Laya, download [laya-v5-inference.zip](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/download/v0.1.0/laya-v5-inference.zip) to `downloads/`, then:
-
-```sh
-python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
-python -m pip install ".[laya]"
-python projects/laya_ft/import_checkpoint.py downloads/laya-v5-inference.zip
-```
-
-The unchanged v0.1.0 V5 archive is compatible with v0.2.0: inference hashes and required notices remain identical. Import verifies every declared file. No training is needed.
-
-```python
-from ticket_engine import LayaEngine
-
-engine = LayaEngine(model_path="models/ticket-finetuned-v5")
-result = engine.classify("We were charged twice. Please refund the extra payment.",
-                         subject="Duplicate charge")
-print(result.category, result.priority, result.needs_review)
-```
-
-Reuse one instance per process. `engine.prepare()` verifies and loads Laya before traffic. Missing or changed weights fail explicitly. Local inference never calls Jev as a fallback. See [INTEGRATION.md](INTEGRATION.md) for output fields, comparison, command-line JSON and errors.
-
-## Connect an existing helpdesk
-
-Deploy the service and create a key in **Settings → API**:
-
-```python
-from uuid import uuid4
-from ticket_engine import ServiceClient
-
-client = ServiceClient("https://tickets.example.com", api_key=integration_key)
-response = client.classify("Please refund the duplicate payment.",
-                           subject="Billing", engine="laya", request_id=str(uuid4()))
-print(response["result"])
-```
-
-`POST /v1/classify` returns classification without creating an inbox ticket. `POST /v1/tickets` imports/upserts source tickets; analysis is a separate explicit action. UUID idempotency keys protect identical retries. Keys belong to one workspace, with limited scopes and expiry. Read the [REST guide](docs/API.md), [OpenAPI contract](service/openapi.py) and [adapter example](examples/helpdesk_adapter.py).
-
-## Shared inbox
-
-Download the model ZIP to `downloads/` first, then:
+Clone the repository and put [`laya-v5-inference.zip`](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/download/v0.1.0/laya-v5-inference.zip) in the checkout's `downloads/` directory.
 
 ```sh
 docker compose build
@@ -92,40 +30,37 @@ docker compose --profile setup run --rm model-install
 docker compose up -d --wait
 ```
 
-Initialization prompts for your own password; no default account or creator credential is supplied. Open **http://127.0.0.1:5180/laya-ft** and sign in. New workspaces start empty. Owners invite members/viewers in **Settings → Team**.
+Open the [inbox](http://127.0.0.1:5180/laya-ft) and sign in as `admin` in workspace `demo` using the password you set during initialization. V5 is ready for inference after verified import. See [deployment](docs/DEPLOYMENT.md) for host requirements, HTTPS and backups, or [local evaluation](docs/DEPLOYMENT.md#local-evaluation) for a single-user demo with synthetic tickets.
 
-Settings configures Jev, a Zendesk OAuth client and optional REST/IMAP sources. Zendesk supports PKCE, encrypted expiring tokens, refresh rotation, pausable incremental sync and source updates. The operator must register their own client/callback; no shared provider app is bundled.
+## What you can do
 
-![Shared workspace settings with synthetic account data](docs/settings.png)
+| Workflow | Entry point |
+| --- | --- |
+| Classify locally in a Python app | [Laya SDK](INTEGRATION.md). Install from source, then load the verified V5 checkpoint. |
+| Call Jev or compare the two engines | [Jev SDK and comparison](INTEGRATION.md). Jev sends the selected ticket text to TypeSafe. |
+| Classify from your helpdesk | [REST API](docs/API.md). Use a scoped workspace key with `POST /v1/classify`. |
+| Triage in a shared inbox | [Inbox and intake](INTAKE.md). Import from CSV, Excel, email or Zendesk, then review and assign tickets. |
 
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for HTTPS, multiple workspaces, backups and upgrades. The supported topology is one service replica with SQLite for small teams. Remote hosting requires a secured HTTPS edge.
+![Shared inbox displaying Laya's classification and suggested team for a synthetic billing ticket](docs/inbox.png)
 
-## Local evaluation
+## Architecture
 
-Activate a Python 3.12 virtual environment, install the CPU Torch build above, then:
-
-```sh
-python -m pip install --require-hashes -r requirements.lock
-npm ci
-python projects/laya_ft/import_checkpoint.py downloads/laya-v5-inference.zip
-npm run build
-python scripts/start.py
+```mermaid
+flowchart LR
+    inbox["Shared inbox"] --> service["Workspace API"]
+    helpdesk["Helpdesk integration"] --> service
+    service --> engines["Python ticket engine"]
+    sdk["Standalone Python app"] --> engines
+    engines --> laya["Laya V5 · local CPU"]
+    engines --> jev["Jev · TypeSafe API"]
 ```
 
-Open **http://127.0.0.1:5180/laya-ft**. The loopback-only demo starts with eight synthetic tickets. Optional connections use this repository's private `.env.local`; start from the blank `.env.example`. Use the authenticated service for shared deployment.
+Training is a separate owner workflow. It transfers the reviewed text and labels to the owner's private Kaggle dataset after confirmation. Ticket import and scheduled sync do not invoke either model.
 
-## Capabilities and boundaries
+## Documentation
 
-- **Billing, Technical, Sales, Accounts, General**, plus priority, complaint, churn and refund signals.
-- English **Inbox, Flag, Assigned, Done**, review, comparison and export.
-- The review panel shows the model's category score, the workspace's routing rule and a link to the original message. If a write conflicts with a newer revision, the inbox reloads the ticket for review before the next submission.
-- **Excel, CSV, email files, REST, IMAP and Zendesk** intake with validation and duplicate checks. [Intake guide](INTAKE.md).
-- Workspace roles, scoped keys, revision checks and explicit model calls. Imports and scheduled sync never invoke AI.
-- Workspace-owned Laya adaptation, private Kaggle tasks, held-out comparison and downloadable adapters. Unlabelled fields keep V5 decisions.
-- Laya stays local. Explicit Jev analysis sends subject/body to TypeSafe; provider pricing applies. Opening comparison only reads saved results.
+- [Model card](MODEL_CARD.md) and [supported scope](SCOPE.md)
+- [Privacy](PRIVACY.md), [security](SECURITY.md) and [production security](docs/PRODUCTION_SECURITY.md)
+- [Contributing](CONTRIBUTING.md) and [upstream notices](NOTICE.md)
 
-Confidence is not measured accuracy. Evaluate representative, independently labelled tickets before automating routing. The project does not send replies, modify Zendesk tickets or expose customer submission forms. See [SCOPE.md](SCOPE.md) and [MODEL_CARD.md](MODEL_CARD.md).
-
-Source and inference assets exclude customer databases, raw training examples, credentials and original workspace history. Runtime tickets live in private `var/` storage; exports and backups can contain personal data. Shared-service connection secrets are encrypted; the local demo uses a private configuration file. See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md) and [deployment security](docs/PRODUCTION_SECURITY.md).
-
-[Contributions](CONTRIBUTING.md) should use synthetic tickets and preserve explicit external calls and workspace isolation. Code is Apache-2.0; upstream attribution remains in [NOTICE.md](NOTICE.md). This is an independent project without provider endorsement.
+Code is [Apache-2.0](LICENSE). Review the model card and notices for model asset terms.

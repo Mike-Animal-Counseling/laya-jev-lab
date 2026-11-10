@@ -60,7 +60,7 @@ npm run dev
 
 Linux/macOS 用 `python3.12 -m venv .venv`，并把命令中的 `& .\.venv\Scripts\python.exe` 换成 `./.venv/bin/python`。正式运行网页可用 `npm run build` 后接 `npm run start`。本机测试不需要 Docker、GPU、Jev Key 或 Zendesk 账号。
 
-若只想查看带八张合成工单的单用户演示，按 [README 的 Local evaluation](../README.md#local-evaluation) 启动。它使用不同的存储和配置；Train、多用户、完整 OAuth 和工作区 API 请用上述认证服务。两个后端共用默认端口 8780，不要同时运行。
+若只想查看带八张合成工单的单用户演示，按[本地评估指南](DEPLOYMENT.md#local-evaluation)启动。它使用不同的存储和配置；Train、多用户、完整 OAuth 和工作区 API 请用上述认证服务。两个后端共用默认端口 8780，不要同时运行。
 
 ## 2. 先用合成数据测试工单流程
 
@@ -192,7 +192,7 @@ print(compare(laya, jev, "Please refund the duplicate charge.", subject="Billing
 
 ## 7. 用历史工单强化 Laya
 
-在 **Settings → Train** 连接自己的 Kaggle 用户名和现代 API Token，之后正常运行无需编辑 Notebook 或手动 Run All。本机应用负责协调和推理，GPU 训练用这个 Kaggle 账号的配额。
+登录工作区后点击顶部 **Train Laya**，也可以[直达本机训练页](http://127.0.0.1:5180/settings?tab=train)。首次使用时连接自己的 Kaggle 用户名和 API Token。应用负责协调和推理，GPU 训练使用这个 Kaggle 账号的配额。
 
 1. 人工核对历史工单标签，映射为 `refund/technical/sales/account/other`。`message` 和 `category` 必填；同一对话的工单填相同 `group_id`。至少两类，每类至少 10 个不同对话组。
 2. 先清理真实文本中的私人信息和秘密，再上传 CSV/Excel，检查预览、分类覆盖和训练字段。内置基础脱敏不能保证清除所有隐私。
@@ -208,7 +208,7 @@ print(compare(laya, jev, "Please refund the duplicate charge.", subject="Billing
 
 ## 8. 多人部署、权限和日常维护
 
-Docker 完整启动命令见 [README 的 Shared inbox](../README.md#shared-inbox)，HTTPS、备份和更新见 [DEPLOYMENT.md](DEPLOYMENT.md)。Docker 的模型卷、工作区卷与源码分开，重建镜像不应删除数据卷。
+Docker 完整启动命令见 [Quickstart](../README.md#quickstart)，HTTPS、备份和更新见 [DEPLOYMENT.md](DEPLOYMENT.md)。Docker 的模型卷、工作区卷与源码分开，重建镜像不应删除数据卷。
 
 Owner 在 **Settings → Team** 邀请成员。Member 可以导入、分析、分配和完成；Viewer 只读工单、已有比较结果和导出。新建第二个工作区要由部署者运行 `service.manage init` 并换一个 slug。测试隔离时分别登录两个工作区：一个工作区导入的数据不应出现在另一个中。
 

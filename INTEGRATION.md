@@ -17,7 +17,13 @@ python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl
 python -m pip install ".[laya]"
 ```
 
-这是从本仓库安装的包，不表示同名包已发布到 PyPI。权重不装进 Python 包，需要按 README 导入单独提供的权重归档，然后显式传入其目录。
+这是从本仓库安装的包。权重单独提供。将 [`laya-v5-inference.zip`](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/download/v0.1.0/laya-v5-inference.zip) 下载到源码目录的 `downloads/`，然后校验并导入：
+
+```sh
+python projects/laya_ft/import_checkpoint.py downloads/laya-v5-inference.zip
+```
+
+导入后的默认路径为 `models/ticket-finetuned-v5`。原始 V5 权重可直接分类，也可作为训练适配器的基线。
 
 ## 本地 Laya
 

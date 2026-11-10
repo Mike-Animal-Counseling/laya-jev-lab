@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { request } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import TrainLaya from "../components/TrainLaya";
@@ -14,12 +15,17 @@ type Settings = {
   members: { id: string; username: string; role: string; enabled: number }[];
   api_keys: { id: string; name: string; scopes: string[]; expires: number }[];
 };
-type Tab = "Connections" | "Sync" | "Train" | "Team" | "API";
+const tabs = ["Connections", "Sync", "Train", "Team", "API"] as const;
 
 export default function SettingsPage() {
+  return <Suspense fallback={<main className="settings-shell">Loading settings…</main>}><WorkspaceSettings /></Suspense>;
+}
+
+function WorkspaceSettings() {
   const auth = useAuth();
+  const requestedTab = useSearchParams().get("tab");
+  const tab = tabs.find((name) => name.toLowerCase() === requestedTab) ?? "Connections";
   const [data, setData] = useState<Settings | null>(null);
-  const [tab, setTab] = useState<Tab>("Connections");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -84,7 +90,13 @@ export default function SettingsPage() {
   return <main className="settings-shell">
     <header className="settings-heading"><div><Link href="/laya-ft" className="settings-back">← Inbox</Link><p className="eyebrow">Workspace</p><h1>Settings</h1><p>Connect sources. Keep your team in sync.</p></div></header>
     {!owner ? <p className="settings-empty">Workspace settings are managed by the owner in self-hosted mode.</p> : <>
-      <nav className="settings-tabs" aria-label="Settings">{(["Connections", "Sync", "Train", "Team", "API"] as Tab[]).map((name) => <button key={name} className={tab === name ? "active" : ""} onClick={() => setTab(name)}>{name}</button>)}</nav>
+      <nav className="settings-tabs" aria-label="Settings">
+        {tabs.map((name) => (
+          <Link key={name} href={name === "Connections" ? "/settings" : `/settings?tab=${name.toLowerCase()}`} aria-current={tab === name ? "page" : undefined}>
+            {name}
+          </Link>
+        ))}
+      </nav>
       {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="settings-notice" role="status">{notice}</p>}
       {!data ? <p>Loading settings…</p> : <>
         {tab === "Train" && <TrainLaya />}

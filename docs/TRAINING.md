@@ -1,6 +1,8 @@
 # Train Laya on your tickets
 
-Connect your own Kaggle account once, import labelled historical tickets in **Settings → Train**, and start training from the app. The service uploads a private dataset, starts a private GPU task, checks status and retrieves the candidate. Normal runs need no notebook editing, Run All step or manual transfer.
+Open **Train Laya** from the signed-in workspace header. On a running local instance, [open the training page directly](http://127.0.0.1:5180/settings?tab=train). On a hosted instance, append `/settings?tab=train` to your deployment URL.
+
+Connect your own Kaggle account once, preview labelled tickets and confirm the upload. Click **Train** to upload a private dataset, start a private GPU task and retrieve the candidate. Normal runs need no notebook editing, Run All step or manual transfer.
 
 This release continues from the reviewed **Laya V5**, adjusting decision layers while freezing the encoder and action head. It retains the five existing SaaS categories. It is not full encoder fine-tuning or a promise that every dataset will improve V5. Jev remains independent.
 
@@ -10,7 +12,7 @@ Use the authenticated workspace service, on your own computer or through [Docker
 
 Docker includes the coordinator and Kaggle connector. The application host needs CPU inference dependencies and the unchanged V5 weights, but no GPU. Training uses the connected Kaggle account's GPU quota. Account verification, accelerator access, internet access, quota and availability remain Kaggle requirements; the app cannot bypass them.
 
-For a source checkout with Python 3.12 and the README's Laya CPU runtime already installed:
+For a source checkout with Python 3.12 and the [Laya CPU runtime and V5 weights](../INTEGRATION.md) already installed:
 
 ```sh
 python -m pip install --require-hashes --index-url https://pypi.org/simple -r service/requirements.lock

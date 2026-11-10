@@ -19,6 +19,20 @@ Choose your own password when prompted; no default account exists. Open **http:/
 
 Named volumes `workspace-data` and `model-data` survive replacement. Import refuses overwrites. Do not use `docker compose down -v` on data you need.
 
+## Local evaluation
+
+For the loopback-only demo, activate a Python 3.12 virtual environment and install the [Laya CPU runtime](../INTEGRATION.md). Download the V5 archive above into `downloads/` and use Node.js 22.19+.
+
+```sh
+python -m pip install --require-hashes -r requirements.lock
+npm ci
+python projects/laya_ft/import_checkpoint.py downloads/laya-v5-inference.zip
+npm run build
+python scripts/start.py
+```
+
+Open [the local inbox](http://127.0.0.1:5180/laya-ft). This demo starts with eight synthetic tickets. Optional connections use the checkout's private `.env.local`, based on `.env.example`. Training and workspace accounts require the authenticated service above. The demo and workspace backends share the default API port, so run them separately.
+
 ## HTTPS
 
 Point your DNS name at the server and open 80/443. Bash:

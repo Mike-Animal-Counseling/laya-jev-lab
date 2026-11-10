@@ -25,8 +25,8 @@
 .settings-heading h1 { margin-bottom: 7px; }
 .settings-heading p:last-child { font-size: 13px; color: var(--muted); }
 .settings-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); margin-bottom: 25px; }
-.settings-tabs button { padding: 12px 1px; color: var(--muted); border-bottom: 2px solid transparent; font-size: 12px; }
-.settings-tabs button.active { color: var(--accent); border-color: var(--accent); }
+.settings-tabs a { padding: 12px 1px; color: var(--muted); border-bottom: 2px solid transparent; font-size: 12px; }
+.settings-tabs a[aria-current="page"] { color: var(--accent); border-color: var(--accent); }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
 .settings-card { padding: 27px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); min-width: 0; }
 .settings-card h2 { font-size: 17px; font-weight: 600; color: var(--ink); margin-bottom: 18px; }
@@ -88,4 +88,5 @@
 .train-class-table strong { font-weight: 500; }
 .train-job-actions { flex-wrap: wrap; gap: 14px; }
 @media (max-width: 700px) { .train-intro, .train-job-heading { flex-direction: column; } .train-job { padding: 17px; } .settings-tabs { overflow-x: auto; } }
+@media (max-width: 700px) { .account-bar nav { gap: 12px; flex-wrap: wrap; justify-content: flex-end; } }
 @media (max-width: 700px) { .settings-grid { grid-template-columns: 1fr; } .settings-shell { padding: 25px 18px 45px; } .settings-card { padding: 22px; } .account-bar { padding: 9px 16px; } .account-bar small { display: none; } .settings-card .invite-form { grid-template-columns: 1fr; } .settings-table > div { grid-template-columns: 1fr 1fr; } .sync-summary { grid-template-columns: 1fr; gap: 13px; } .settings-tabs { gap: 20px; } }

@@ -36,7 +36,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspace, username, password }) });
       const value = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(value.error || "Sign in failed.");
-      clearSession(); setPassword(""); window.location.assign("/laya-ft");
+      const trainingLink = path === "/settings" && new URLSearchParams(window.location.search).get("tab") === "train";
+      clearSession(); setPassword("");
+      window.location.assign(trainingLink ? "/settings?tab=train" : "/laya-ft");
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -53,7 +55,13 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (auth?.authenticated) return <AuthContext.Provider value={auth}>
     <div className="account-bar">
       <span><strong>{auth.user?.name}</strong><span className="account-separator">/</span>{auth.user?.username}<small>{auth.user?.role}</small></span>
-      <nav>{auth.user?.role === "owner" && <Link href="/settings">Settings</Link>}<button disabled={busy} onClick={() => void logout()}>Sign out</button></nav>
+      <nav>
+        {auth.user?.role === "owner" && <>
+          <Link href="/settings?tab=train">Train Laya</Link>
+          <Link href="/settings">Settings</Link>
+        </>}
+        <button disabled={busy} onClick={() => void logout()}>Sign out</button>
+      </nav>
     </div>
     {error && <p className="account-error" role="alert">{error}</p>}
     {children}
