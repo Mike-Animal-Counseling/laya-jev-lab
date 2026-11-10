@@ -3,9 +3,8 @@
   <h1>Laya × Jev Lab</h1>
   <p><strong>Classify support tickets. Train Laya on your own labelled examples.</strong></p>
   <p><a href="#train-laya"><strong>Train Laya</strong></a> · <a href="#quickstart">Quickstart</a> · <a href="docs/API.md">REST API</a> · <a href="docs/USAGE.zh-CN.md">中文</a></p>
+  <p><a href="https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml"><img src="https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml/badge.svg" alt="Checks"></a> · <a href="LICENSE">Apache-2.0</a> · <a href="https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/tag/v0.1.0">Laya V5 weights</a></p>
 </div>
-
-[![Checks](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml/badge.svg)](https://github.com/Mike-Animal-Counseling/laya-jev-lab/actions/workflows/check.yml) · [Apache-2.0](LICENSE) · [Laya V5 weights](https://github.com/Mike-Animal-Counseling/laya-jev-lab/releases/tag/v0.1.0)
 
 Run **Laya V5** locally on CPU, call **Jev** with your TypeSafe key, or compare both on the same ticket. The engines return a category, priority and complaint, churn and refund signals. Use the Python SDK, connect an existing helpdesk over REST, or run the shared inbox.
 
