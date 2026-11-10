@@ -1,11 +1,4 @@
 /* Inbox refresh: quiet surfaces, short labels, one clear primary action. */
-:root {
-  --ink: #263b36;
-  --muted: #74817b;
-  --canvas: #f7f9f8;
-  --line: #e7ece9;
-  --teal: #237a67;
-}
 .navigation { background: #f0f4f2; color: #66776e; border-right: 1px solid #e2e9e5; }
 .wordmark { color: #244b3f; font-size: 23px; }
 .wordmark-dot { color: #237a67; }
@@ -68,15 +61,15 @@ h1 { font-size: 29px; letter-spacing: -.9px; }
 .import-steps { display: flex; gap: 28px; margin: 19px 0 18px; }
 .import-steps span { display: flex; gap: 7px; align-items: center; font-size: 11px; color: #8d9992; }
 .import-steps b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-weight: 500; background: #f0f3f1; }
-.import-steps .current { color: var(--teal); font-weight: 600; }
-.import-steps .current b { background: #e4f0e7; }
-.import-dropzone { width: 100%; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 23px; border: 1.5px dashed #cbdacf; border-radius: 11px; background: #f8fbf8; }
-.import-dropzone:hover, .import-dropzone.dragging { border-color: #237a67; background: #edf7ef; }
-.import-file-icon { color: #4a8964; }
+.import-steps .current { color: var(--accent); font-weight: 600; }
+.import-steps .current b { background: var(--soft); }
+.import-dropzone { width: 100%; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 23px; border: 1.5px dashed var(--control-rule); border-radius: 3px; background: var(--paper); }
+.import-dropzone:hover, .import-dropzone.dragging { border-color: var(--accent); background: var(--soft); }
+.import-file-icon { color: var(--accent); }
 .import-dropzone strong { max-width: 100%; overflow-wrap: anywhere; font-weight: 550; font-size: 13px; }
 .import-dropzone small { color: #7b8b81; font-size: 11px; }
 .import-template { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 14px 0 18px; color: #7b887f; font-size: 11px; }
-.import-template a { display: inline-flex; align-items: center; gap: 5px; color: var(--teal); font-weight: 550; }
+.import-template a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 550; }
 .import-columns { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 17px; font-size: 11px; color: #8a968e; }
 .import-columns code { font-family: inherit; color: #3d6150; padding: 3px 7px; border-radius: 4px; background: #edf3ef; }
 .import-columns small { flex-basis: 100%; margin-top: 4px; font-size: 11px; }
@@ -97,7 +90,7 @@ h1 { font-size: 29px; letter-spacing: -.9px; }
 .import-privacy { display: flex; align-items: center; gap: 7px; color: #8a9a8e; font-size: 10px; margin-top: 20px; }
 .intake-tabs { display: flex; gap: 6px; margin-top: 18px; border-bottom: 1px solid var(--line); }
 .intake-tabs button { font-size: 11px; padding: 10px 12px; color: #8a978e; border-bottom: 2px solid transparent; }
-.intake-tabs button.active { color: var(--teal); border-color: var(--teal); font-weight: 600; }
+.intake-tabs button.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
 .intake-connection { display: flex; align-items: center; gap: 12px; padding: 20px 15px; margin: 14px 0; border: 1px solid var(--line); border-radius: 9px; background: #f8fbf9; color: #54836a; }
 .intake-connection > div { flex: 1; }
 .intake-connection strong { display: block; font-size: 12px; font-weight: 550; }
