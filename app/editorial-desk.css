@@ -1,15 +1,17 @@
-/* Ticket desk. A single document surface with model notes in its margin. */
+/* Ticket desk. Cool paper, a shaded queue and ink-blue review marks. */
 .ticket-desk {
-  --ink: #272321;
-  --muted: #60564d;
-  --canvas: #fbf8f3;
-  --line: #ded4c8;
-  --desk-paper: #fdfbf7;
-  --desk-inset: #f2ece3;
-  --desk-action: #8f382a;
-  --desk-action-hover: #713020;
-  --desk-focus: #87512c;
-  --desk-success: #32604a;
+  --ink: #192b32;
+  --muted: #4b6069;
+  --canvas: #edf2f4;
+  --line: #c8d6db;
+  --desk-paper: #f9fcfd;
+  --desk-queue: #eff5f6;
+  --desk-inset: #deedef;
+  --desk-rule: #8ba4ad;
+  --desk-action: #00616a;
+  --desk-action-hover: #004d56;
+  --desk-focus: #006972;
+  --desk-success: #315d44;
   display: block;
   background: var(--canvas);
   color: var(--ink);
@@ -27,6 +29,7 @@
   padding: .5rem clamp(1rem, 3vw, 2rem);
   overflow: visible;
   border: 0;
+  border-top: 3px solid var(--desk-action);
   border-bottom: 1px solid var(--line);
   color: var(--ink);
   background: var(--desk-paper);
@@ -70,8 +73,8 @@
   font-variant-numeric: tabular-nums;
 }
 .ticket-desk .navigation nav button.active {
-  color: var(--ink);
-  background: var(--desk-inset);
+  color: var(--desk-action);
+  background: transparent;
   box-shadow: inset 0 -2px var(--desk-action);
 }
 .ticket-desk :is(.navigation nav button:hover, .nav-tool:hover, .reset-link:hover) { background: var(--desk-inset); }
@@ -122,12 +125,13 @@
   background: var(--desk-paper);
   box-shadow: none;
 }
-.ticket-desk :is(.inbox, .document-toolbar, .inbox-footer) { background: var(--desk-paper); }
+.ticket-desk .inbox, .ticket-desk .inbox-footer { background: var(--desk-queue); }
+.ticket-desk .document-toolbar { background: var(--desk-paper); }
 .ticket-desk .search {
   color: var(--muted);
   background: transparent;
   border: 0;
-  border-bottom: 1px solid #a5927e;
+  border-bottom: 1px solid var(--desk-rule);
   border-radius: 0;
 }
 .ticket-desk .search input, .ticket-desk .filters { font-size: .875rem; color: var(--ink); }
@@ -145,10 +149,12 @@
   border-radius: 0;
   background: transparent;
 }
-.ticket-desk .ticket-row:hover, .ticket-desk .ticket-row.selected { background: var(--desk-inset); }
-.ticket-desk .ticket-row.selected::before { background: var(--desk-action); border-radius: 0; inset-block: .5rem; }
+.ticket-desk .ticket-row:hover { background: var(--desk-inset); }
+.ticket-desk .ticket-row.selected { background: var(--desk-paper); }
+.ticket-desk .ticket-row.selected::before { background: var(--desk-action); border-radius: 0; inset-block: 0; }
 .ticket-desk .ticket-row h3 { color: var(--ink); font-size: .9rem; }
 .ticket-desk :is(.ticket-row p, .ticket-sender, .ticket-time, .ticket-bottom, .ticket-footer) { color: var(--muted); font-size: .8rem; }
+.ticket-desk .ticket-bottom { font-variant-numeric: tabular-nums; }
 .ticket-desk .ticket-row .avatar, .ticket-desk .customer .avatar { display: none; }
 .ticket-desk :is(.document-toolbar, .detail-tabs) { min-height: 44px; }
 .ticket-desk .detail-tabs button { font-size: .85rem; color: var(--muted); }
@@ -169,7 +175,7 @@
   min-width: 0;
   padding: .125rem 0 0 1rem;
   border: 0;
-  border-inline-start: 1px solid #ac9a88;
+  border-inline-start: 2px solid var(--desk-action);
   background: transparent;
 }
 .ticket-desk .subject {
@@ -186,7 +192,10 @@
   color: var(--muted);
   font-size: .8rem;
 }
-.ticket-desk .reading-meta > span:first-child { font-family: ui-monospace, Consolas, monospace; }
+.ticket-desk .reading-meta > span:first-child {
+  color: var(--desk-action);
+  font: 700 .8rem/1.4 ui-monospace, Consolas, monospace;
+}
 .ticket-desk .customer-message {
   max-width: 68ch;
   color: var(--ink);
@@ -198,6 +207,7 @@
 .ticket-desk .reading-note { margin-top: 1rem; }
 .ticket-desk .analysis-heading { margin-bottom: .375rem; }
 .ticket-desk :is(.customer strong, .analysis-heading h3) { color: var(--ink); font-size: .9rem; }
+.ticket-desk .analysis-heading h3 { color: var(--desk-action); }
 .ticket-desk :is(.model-badge, .confidence-row, .confidence-note, .analysis-footer) { color: var(--muted); font-size: .8rem; }
 .ticket-desk .model-badge { padding: 0; border: 0; background: none; }
 .ticket-desk .model-badge i, .ticket-desk .completion-icon { display: none; }
@@ -233,11 +243,11 @@
 }
 .ticket-desk .decision-summary { flex-wrap: wrap; }
 .ticket-desk .confidence-track { height: 3px; border-radius: 0; background: var(--desk-inset); }
-.ticket-desk .confidence-track i { border-radius: 0; background: #7d6e61; }
+.ticket-desk .confidence-track i { border-radius: 0; background: var(--desk-rule); }
 .ticket-desk .confidence-row { margin-top: .75rem; }
 .ticket-desk .confidence-note { margin-top: .5rem; }
 .ticket-desk .assignment { border-color: var(--line); }
-.ticket-desk .assignment select { min-height: 40px; border-radius: 2px; border-color: #a5927e; background-color: var(--desk-paper); color: var(--ink); }
+.ticket-desk .assignment select { min-height: 40px; border-radius: 2px; border-color: var(--desk-rule); background-color: var(--desk-paper); color: var(--ink); }
 .ticket-desk .ticket-status { border-radius: 2px; }
 .ticket-desk :is(.ticket-status.done, .ticket-status.assigned) { color: var(--desk-success); background: #e6efe7; }
 .ticket-desk :is(.compare-link strong, .compare-link small, .compare-link-icon) { color: var(--muted); }
