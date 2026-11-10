@@ -1,13 +1,15 @@
 @import "tailwindcss";
 :root {
-  --ink: #233c39;
-  --muted: #7a8985;
-  --teal: #237a67;
-  --teal-dark: #155848;
-  --line: #e6ebe7;
-  --canvas: #f5f6f3;
-  --sidebar: #173d35;
-  --soft: #edf5ef;
+  --ink: #182637;
+  --muted: #4f5f71;
+  --accent: #335e88;
+  --accent-hover: #27496c;
+  --line: #ced7e1;
+  --control-rule: #7d8ea2;
+  --canvas: #eef1f5;
+  --paper: #fbfcfe;
+  --sidebar: #192d43;
+  --soft: #e5ecf4;
   --amber: #ac6a30;
   --font-sans: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
   color-scheme: light;
@@ -423,8 +425,8 @@ h1 {
   flex-shrink: 0;
 }
 .status-dot.ready {
-  background: #4b9873;
-  box-shadow: 0 0 0 3px #4b98730d;
+  background: var(--accent);
+  box-shadow: none;
 }
 .status-dot.error {
   background: #c5745d;
@@ -445,20 +447,20 @@ h1 {
   white-space: nowrap;
 }
 .primary {
-  background: var(--teal);
-  color: #fff;
-  box-shadow: 0 2px 3px #1f5d4910;
+  background: var(--accent);
+  color: var(--paper);
+  box-shadow: none;
 }
 .primary:hover:not(:disabled) {
-  background: var(--teal-dark);
+  background: var(--accent-hover);
 }
 .secondary {
-  background: white;
-  border: 1px solid #dce5dd;
-  color: #496653;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
 }
 .secondary:hover:not(:disabled) {
-  background: #f0f6f0;
+  background: var(--soft);
 }
 .danger {
   background: #b95140;
@@ -479,7 +481,7 @@ h1 {
 }
 .icon-button:hover:not(:disabled) {
   background: #e9eee8;
-  color: var(--teal);
+  color: var(--accent);
 }
 .workspace-toolbar {
   display: flex;
@@ -525,8 +527,8 @@ h1 {
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  background: #e9f2e5;
-  color: #61865b;
+  background: var(--soft);
+  color: var(--accent);
   flex-shrink: 0;
 }
 .model-mark.is-jev {
@@ -555,7 +557,7 @@ h1 {
   background: #cdab73;
 }
 .queue-dot.analyzed {
-  background: #739881;
+  background: var(--accent);
 }
 .queue-summary .icon-button {
   border: 1px solid #dfe6dc;
@@ -671,7 +673,7 @@ h1 {
   position: absolute;
   bottom: -1px;
   height: 2px;
-  background: #518863;
+  background: var(--accent);
   left: 0;
   right: 0;
   border-radius: 3px;
@@ -804,7 +806,7 @@ h1 {
 }
 .ticket-status.analyzed,
 .ticket-status.assigned {
-  color: #67916a;
+  color: var(--accent);
 }
 .ticket-status.review {
   color: #ac734d;
@@ -903,7 +905,7 @@ h1 {
   left: 0;
   right: 0;
   height: 2px;
-  background: #688e61;
+  background: var(--accent);
 }
 .ticket-pagination {
   display: flex;
@@ -1202,13 +1204,13 @@ h1 {
 }
 .confidence-row strong {
   font-size: 11px;
-  color: #6a8e54;
+  color: var(--ink);
   font-weight: 550;
 }
 .confidence-track,
 .distribution-track {
   height: 4px;
-  background: #e2ebd6;
+  background: var(--soft);
   border-radius: 5px;
   overflow: hidden;
 }
@@ -1216,7 +1218,7 @@ h1 {
 .distribution-track i {
   height: 100%;
   display: block;
-  background: #95b577;
+  background: var(--control-rule);
   border-radius: 5px;
 }
 .assignment {
@@ -1526,7 +1528,7 @@ h1 {
   line-height: 1.8;
 }
 .text-button {
-  color: var(--teal);
+  color: var(--accent);
   font-size: 11px;
   text-decoration: underline;
 }
@@ -2240,7 +2242,7 @@ h1 {
   gap: 7px;
   margin-top: 15px;
   padding: 8px 0;
-  color: var(--teal);
+  color: var(--accent);
   font-size: 12px;
 }
 .expand-message .icon {
