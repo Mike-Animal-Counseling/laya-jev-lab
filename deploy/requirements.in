@@ -1,5 +1,5 @@
 -r ../service/requirements.in
-torch==2.14.0+cpu
+torch==2.15.0
 transformers==5.17.0
 safetensors==0.8.0
 huggingface_hub==1.32.0
