@@ -2,4 +2,4 @@
 waitress==3.0.2
 openpyxl==3.1.5
 defusedxml==0.7.1
-cryptography>=46,<51
+cryptography>=50.0.2,<51
