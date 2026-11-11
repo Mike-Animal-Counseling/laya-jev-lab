@@ -33,7 +33,7 @@
     "tailwindcss": "4.2.1",
     "typescript": "~6.0.3",
     "typescript-7": "npm:typescript@~7.0.2",
-    "typescript-eslint": "8.70.1"
+    "typescript-eslint": "8.72.1"
   },
   "type": "module",
   "overrides": {
