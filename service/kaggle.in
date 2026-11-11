@@ -1,2 +1,2 @@
 # Optional coordinator dependencies, separate from inference and the base SDK.
-kaggle==2.2.4
+kaggle==2.2.5
