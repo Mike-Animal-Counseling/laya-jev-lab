@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 SERVICE_BACKEND_URL=http://api:8780
 COPY package.json package-lock.json ./
@@ -8,7 +8,7 @@ COPY public ./public
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 RUN npx next build
 
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=5180
 COPY --from=build --chown=node:node /app/.next/standalone ./
